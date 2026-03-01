@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg18
+    container_name: kosha-postgres
+    environment:
+      POSTGRES_USER: kosha
+      POSTGRES_DB: kosha_db
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    secrets:
+      - db_password
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    container_name: kosha-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio
+    container_name: kosha-minio
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    secrets:
+      - minio_root_user
+      - minio_root_password
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+
+secrets:
+  db_password:
+    file: ./infra/secrets/db_password.txt
+  minio_root_user:
+    file: ./infra/secrets/minio_root_user.txt
+  minio_root_password:
+    file: ./infra/secrets/minio_root_password.txt
