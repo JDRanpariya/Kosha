@@ -1,3 +1,6 @@
 # Root .gitignore - empty because we are using folder-wise ignores
 # You can add global rules here in the future if needed
 
+.env
+secrets/
+
