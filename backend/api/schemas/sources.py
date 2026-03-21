@@ -10,7 +10,13 @@ from typing import Any, Literal
 from backend.api.schemas.common import BaseSchema, StatusResponse
 
 
-SourceType = Literal["rss", "arxiv", "spotify", "youtube"]
+SourceType = Literal[
+    "rss", "substack", "email_imap",    # newsletters
+    "arxiv",                             # papers
+    "hackernews", "reddit", "github",   # social / dev
+    "spotify",                           # podcasts
+    "youtube",                           # videos
+]
 
 
 class SourceBase(BaseSchema):
