@@ -47,9 +47,11 @@ uv pip install -e ".[dev]"
 **macOS (Homebrew):**
 
 ```bash
-brew install postgresql@16
+brew install postgresql@18
 brew install pgvector
-brew services start postgresql@16
+echo 'export PATH="/opt/homebrew/opt/postgresql@18/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+pg_ctl -D $(brew --prefix)/var/postgresql@18 -l $(brew --prefix)/var/postgresql@18/server.log start
 ```
 
 **Ubuntu/Debian:**
