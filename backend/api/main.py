@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api.routes import digest, sources, feedback
+from backend.api.routes import digest, sources, feedback, ingest, search
 from backend.core.config import settings
 
 app = FastAPI(
@@ -24,8 +24,10 @@ app.add_middleware(
 
 # Routes
 
-app.include_router(digest.router, prefix="/api/digest", tags=["digest"])
 app.include_router(sources.router, prefix="/api/sources", tags=["sources"])
+app.include_router(ingest.router, prefix="/api/ingest", tags=["ingest"])
+app.include_router(search.router, prefix="/api/search", tags=["search"])
+app.include_router(digest.router, prefix="/api/digest", tags=["digest"])
 app.include_router(feedback.router, prefix="/api/feedback", tags=["feedback"])
 
 @app.get("/health")

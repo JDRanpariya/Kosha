@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 from backend.db.database import get_db
 from backend.db.models import Item, ItemContent
@@ -13,7 +13,7 @@ router = APIRouter()
 @router.get("/daily")
 def get_daily_digest(db: Session = Depends(get_db)):
     """Get items from the last 24 hours."""
-    cutoff = datetime.utcnow() - timedelta(days=1)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=1)
 
     items = db.query(Item).filter(
         Item.published_at >= cutoff
