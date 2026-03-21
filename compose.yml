@@ -153,6 +153,8 @@ services:
       DB_NAME: kosha_db   
       REDIS_HOST: redis
       REDIS_PORT: 6379    
+    secrets:
+      - db_password
     depends_on:
       - worker
 

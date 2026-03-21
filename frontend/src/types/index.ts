@@ -26,13 +26,19 @@ export interface ItemDetail extends Item {
 
 export interface DigestResponse {
   date: string
-  count: number
+  total: number   // total available in window, not just this page
   items: Item[]
 }
 
 export interface SearchResponse {
   query: string
   count: number
+  items: Item[]
+}
+
+export interface SavedResponse {
+  count: number
+  item_ids: number[]
   items: Item[]
 }
 

@@ -1,15 +1,11 @@
 import { useState } from 'react'
-import { useSavedItems, useDailyDigest } from '@/hooks/useItems'
+import { useSavedItems } from '@/hooks/useItems'
 import { ItemList } from '@/components/items/ItemList'
 import { ItemDetail } from '@/components/items/ItemDetail'
 
 export function SavedPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
-  const { data: saved, isLoading: savedLoading } = useSavedItems()
-  const { data: digest } = useDailyDigest()
-
-  // Filter digest items to only show saved ones
-  const savedItems = digest?.items.filter((item) => saved?.item_ids.includes(item.id)) ?? []
+  const { data: saved, isLoading } = useSavedItems()
 
   return (
     <div>
@@ -21,13 +17,15 @@ export function SavedPage() {
       </div>
 
       <ItemList
-        items={savedItems}
+        items={saved?.items ?? []}
         savedIds={saved?.item_ids ?? []}
-        isLoading={savedLoading}
+        isLoading={isLoading}
         onSelectItem={setSelectedId}
       />
 
-      {selectedId && <ItemDetail itemId={selectedId} onClose={() => setSelectedId(null)} />}
+      {selectedId && (
+        <ItemDetail itemId={selectedId} onClose={() => setSelectedId(null)} />
+      )}
     </div>
   )
 }
