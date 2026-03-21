@@ -1,6 +1,21 @@
 # 🪷 Kosha
 **Fully Open Source Personalized Content Streamer**
 
+## First-time Setup
+
+Create the following secret files before running `docker compose up`:
+
+```bash
+echo "kosha_dev_password" > infra/secrets/db_password.txt
+echo "minioadmin"         > infra/secrets/minio_root_user.txt
+echo "minioadmin"         > infra/secrets/minio_root_password.txt
+echo ""                   > infra/secrets/spotify_client_id.txt
+echo ""                   > infra/secrets/spotify_client_secret.txt
+echo ""                   > infra/secrets/youtube_api_key.txt
+```
+
+Spotify and YouTube secrets can be left empty — those connectors are skipped if credentials are missing.
+
 ---
 
 ## 🚀 Minimal MVP Roadmap (4–6 weeks)
