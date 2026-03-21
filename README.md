@@ -1,4 +1,4 @@
-# Kosha 🪴
+# Kosha 🪷
 
 A fully open-source, self-hosted personal content aggregator. Kosha pulls from RSS feeds, arXiv, Spotify podcasts, and YouTube channels, stores everything in a searchable Postgres + pgvector database, and serves it through a clean REST API.
 
