@@ -25,6 +25,7 @@ CATEGORY_MAP: dict[str, str] = {
     "spotify":    "podcasts",
     # videos
     "youtube":    "videos",
+    "youtube_subscriptions":  "videos",
 }
 
 

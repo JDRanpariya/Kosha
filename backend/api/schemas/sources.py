@@ -11,11 +11,11 @@ from backend.api.schemas.common import BaseSchema, StatusResponse
 
 
 SourceType = Literal[
-    "rss", "substack", "email_imap",    # newsletters
+    "rss", "substack", "email_imap",     # newsletters
     "arxiv",                             # papers
-    "hackernews", "reddit", "github",   # social / dev
+    "hackernews", "reddit", "github",    # social / dev
     "spotify",                           # podcasts
-    "youtube",                           # videos
+    "youtube", "youtube_subscriptions",  # videos
 ]
 
 

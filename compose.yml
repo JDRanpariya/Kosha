@@ -86,6 +86,8 @@ services:
       - github_api_token
       - email_username
       - email_password
+      - youtube_client_id
+      - youtube_secret_id
 
     depends_on:
       postgres:
@@ -131,6 +133,8 @@ services:
       - db_password
       - spotify_client_id
       - spotify_client_secret
+      - youtube_client_id
+      - youtube_secret_id
       - youtube_api_key
       - github_api_token
       - email_username
@@ -188,3 +192,7 @@ secrets:
     file: ./infra/secrets/email_username.txt
   email_password:
     file: ./infra/secrets/email_password.txt
+  youtube_client_id:
+    file: ./infra/secrets/youtube_client_id.txt
+  youtube_client_secret:
+    file: ./infra/secrets/youtube_client_secret.txt

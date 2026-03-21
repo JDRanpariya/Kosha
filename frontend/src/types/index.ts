@@ -11,6 +11,7 @@ export interface Source {
     | 'github'
     | 'spotify'
     | 'youtube'
+    | 'youtube_subscriptions'
   url: string | null
   enabled: boolean
   last_fetched_at: string | null

@@ -1,7 +1,8 @@
 // frontend/src/pages/SourcesPage.tsx
 
-import { useState } from 'react'
-import { Plus, Trash2, RefreshCw, Check, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Plus, Trash2, RefreshCw, Check, X, Youtube } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,16 +19,87 @@ import type { Source } from '@/types'
 
 // ── Static metadata ───────────────────────────────────────────────────────────
 
+/**
+ * configRequired: false  → the config field is shown but NOT required
+ * configRequired: null   → no config field at all (oauth / no-config types)
+
+ */
 const SOURCE_TYPES = [
-  { value: 'rss',        label: 'RSS Feed',                   category: 'newsletters', placeholder: 'Feed URL (https://example.com/feed.rss)' },
-  { value: 'substack',   label: 'Substack',                   category: 'newsletters', placeholder: 'Publication URL (https://name.substack.com)' },
-  { value: 'email_imap', label: 'Newsletter via Email (IMAP)', category: 'newsletters', placeholder: 'IMAP host (imap.gmail.com)' },
-  { value: 'arxiv',      label: 'arXiv',                      category: 'papers',      placeholder: 'Categories (cs.AI,stat.ML)' },
-  { value: 'hackernews', label: 'Hacker News',                category: 'social',      placeholder: 'Tags — leave blank for front_page' },
-  { value: 'reddit',     label: 'Reddit',                     category: 'social',      placeholder: 'Subreddits (MachineLearning,LocalLLaMA)' },
-  { value: 'github',     label: 'GitHub Releases & Trending', category: 'social',      placeholder: 'Repos (openai/whisper,ollama/ollama) — leave blank for trending' },
-  { value: 'spotify',    label: 'Spotify Podcast',            category: 'podcasts',    placeholder: 'Show ID' },
-  { value: 'youtube',    label: 'YouTube Channel',            category: 'videos',      placeholder: 'Channel IDs (UCxxx,UCyyy)' },
+  // Newsletters
+  {
+    value: 'rss',
+    label: 'RSS Feed',
+    category: 'newsletters',
+    placeholder: 'Feed URL (https://example.com/feed.rss)',
+    configRequired: true,
+  },
+  {
+    value: 'substack',
+    label: 'Substack',
+    category: 'newsletters',
+    placeholder: 'Publication URL (https://name.substack.com)',
+    configRequired: true,
+  },
+  {
+    value: 'email_imap',
+    label: 'Newsletter via Email (IMAP)',
+    category: 'newsletters',
+    placeholder: 'IMAP host (imap.gmail.com)',
+    configRequired: true,
+  },
+  // Papers
+  {
+    value: 'arxiv',
+    label: 'arXiv',
+    category: 'papers',
+    placeholder: 'Categories (cs.AI,stat.ML)',
+    configRequired: true,
+  },
+  // Social
+  {
+    value: 'hackernews',
+    label: 'Hacker News',
+    category: 'social',
+    placeholder: 'Tags — leave blank for front_page',
+    configRequired: false,  // optional
+  },
+  {
+    value: 'reddit',
+    label: 'Reddit',
+    category: 'social',
+    placeholder: 'Subreddits (MachineLearning,LocalLLaMA)',
+    configRequired: true,
+  },
+  {
+    value: 'github',
+    label: 'GitHub Releases & Trending',
+    category: 'social',
+    placeholder: 'Repos (openai/whisper,ollama/ollama) — leave blank for trending only',
+    configRequired: false,  // fully optional
+  },
+  // Podcasts
+  {
+    value: 'spotify',
+    label: 'Spotify Podcast',
+    category: 'podcasts',
+    placeholder: 'Show ID',
+    configRequired: true,
+  },
+  // Videos
+  {
+    value: 'youtube',
+    label: 'YouTube Channel',
+    category: 'videos',
+    placeholder: 'Channel IDs (UCxxx,UCyyy)',
+    configRequired: true,
+  },
+  {
+    value: 'youtube_subscriptions',
+    label: 'YouTube Subscriptions (all your subs)',
+    category: 'videos',
+    placeholder: '',
+    configRequired: null,   // uses OAuth — no manual config field
+  },
 ] as const
 
 type SourceTypeValue = (typeof SOURCE_TYPES)[number]['value']
@@ -41,38 +113,38 @@ const CATEGORY_COLOURS: Record<string, string> = {
   other:       'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
 }
 
+const CATEGORY_ORDER = ['newsletters', 'papers', 'social', 'podcasts', 'videos', 'other']
+
 // ── Config builder ────────────────────────────────────────────────────────────
 
 function buildConfigJson(type: string, value: string): Record<string, unknown> {
-  const trimmed = value.trim()
+  const v = value.trim()
   switch (type) {
     case 'rss':
-      return { feed_url: trimmed }
+      return { feed_url: v }
     case 'substack':
-      return { publication_url: trimmed }
+      return { publication_url: v }
     case 'arxiv':
-      return { categories: trimmed.split(',').map((s) => s.trim()).filter(Boolean) }
+      return { categories: v.split(',').map((s) => s.trim()).filter(Boolean) }
     case 'hackernews':
-      return { tags: trimmed || 'front_page' }
+      return { tags: v || 'front_page' }
     case 'reddit':
-      return { subreddits: trimmed.split(',').map((s) => s.trim()).filter(Boolean) }
+      return { subreddits: v.split(',').map((s) => s.trim()).filter(Boolean) }
     case 'github':
       return {
-        repos: trimmed ? trimmed.split(',').map((s) => s.trim()).filter(Boolean) : [],
+        repos: v ? v.split(',').map((s) => s.trim()).filter(Boolean) : [],
         fetch_trending: true,
       }
     case 'spotify':
-      return { show_id: trimmed }
+      return { show_id: v }
     case 'youtube':
-      return { channels: trimmed.split(',').map((s) => s.trim()).filter(Boolean) }
-    case 'email_imap':
-      return { imap_host: trimmed }
+      return { channels: v.split(',').map((s) => s.trim()).filter(Boolean) }
     default:
       return {}
   }
 }
 
-// ── Helper: group sources by category ────────────────────────────────────────
+// ── Helper ────────────────────────────────────────────────────────────────────
 
 function groupByCategory(sources: Source[]): Record<string, Source[]> {
   return sources.reduce<Record<string, Source[]>>((acc, src) => {
@@ -86,23 +158,14 @@ function groupByCategory(sources: Source[]): Record<string, Source[]> {
 
 // ── Add-source form ───────────────────────────────────────────────────────────
 
-interface AddSourceFormProps {
-  onClose: () => void
-}
-
-function AddSourceForm({ onClose }: AddSourceFormProps) {
+function AddSourceForm({ onClose }: { onClose: () => void }) {
   const createSource = useCreateSource()
-  const [formData, setFormData] = useState<{
-    name: string
-    type: string
-    config: string
-  }>({ name: '', type: 'rss', config: '' })
+  const [formData, setFormData] = useState({ name: '', type: 'rss', config: '' })
 
-  const selectedMeta = SOURCE_TYPES.find((t) => t.value === formData.type)
-  const needsConfig = formData.type !== 'hackernews'
+  const meta = SOURCE_TYPES.find((t) => t.value === formData.type)
 
-  // Group types by category for <optgroup>
-  const grouped = SOURCE_TYPES.reduce<Record<string, typeof SOURCE_TYPES[number][]>>(
+  // Group for <optgroup>
+  const grouped = [...SOURCE_TYPES].reduce<Record<string, typeof SOURCE_TYPES[number][]>>(
     (acc, t) => {
       if (!acc[t.category]) acc[t.category] = []
       acc[t.category].push(t)
@@ -111,8 +174,18 @@ function AddSourceForm({ onClose }: AddSourceFormProps) {
     {}
   )
 
+  const isOAuth        = meta?.configRequired === null
+  const configRequired = meta?.configRequired === true
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
+    // OAuth types are connected via the browser redirect, not this form
+    if (isOAuth) {
+      window.location.href = '/api/youtube/oauth/start'
+      return
+    }
+
     const config_json = buildConfigJson(formData.type, formData.config)
 
     createSource.mutate(
@@ -122,11 +195,7 @@ function AddSourceForm({ onClose }: AddSourceFormProps) {
         url: formData.type === 'rss' ? formData.config : undefined,
         config_json,
       },
-      {
-        onSuccess: () => {
-          onClose()
-        },
-      }
+      { onSuccess: onClose }
     )
   }
 
@@ -158,12 +227,12 @@ function AddSourceForm({ onClose }: AddSourceFormProps) {
                 setFormData({ ...formData, type: e.target.value, config: '' })
               }
             >
-              {Object.entries(grouped).map(([cat, types]) => (
+              {CATEGORY_ORDER.filter((cat) => grouped[cat]).map((cat) => (
                 <optgroup
                   key={cat}
                   label={cat.charAt(0).toUpperCase() + cat.slice(1)}
                 >
-                  {types.map((t) => (
+                  {grouped[cat].map((t) => (
                     <option key={t.value} value={t.value}>
                       {t.label}
                     </option>
@@ -173,35 +242,66 @@ function AddSourceForm({ onClose }: AddSourceFormProps) {
             </select>
           </div>
 
-          {/* Configuration value */}
-          {needsConfig && selectedMeta && (
+          {/* OAuth notice */}
+          {isOAuth && (
+            <div className="rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 p-3 text-sm text-blue-800 dark:text-blue-200">
+              <p className="font-medium mb-1">OAuth required</p>
+              <p>
+                Clicking "Connect with Google" will open Google's permission
+                screen. Once approved, all your subscriptions will be imported
+                automatically.
+              </p>
+            </div>
+          )}
+
+          {/* Config field — shown when NOT oauth */}
+          {!isOAuth && meta && (
             <div>
               <label className="block text-sm font-medium mb-1">
                 Configuration
+                {!configRequired && (
+                  <span className="ml-1 text-muted-foreground font-normal">
+                    (optional)
+                  </span>
+                )}
               </label>
               <Input
                 value={formData.config}
                 onChange={(e) =>
                   setFormData({ ...formData, config: e.target.value })
                 }
-                placeholder={selectedMeta.placeholder}
-                required
+                placeholder={meta.placeholder}
+                required={configRequired}
               />
+
+              {formData.type === 'hackernews' && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Leave blank to use{' '}
+                  <code className="bg-muted px-1 rounded">front_page</code>.
+                  Other options: <code className="bg-muted px-1 rounded">ask_hn</code>,{' '}
+                  <code className="bg-muted px-1 rounded">show_hn</code>,{' '}
+                  <code className="bg-muted px-1 rounded">job</code>
+                </p>
+              )}
+
+              {formData.type === 'github' && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Leave blank to fetch trending repos only. The API token is
+                  read from secrets (optional but raises rate limits).
+                </p>
+              )}
+
               {formData.type === 'email_imap' && (
                 <p className="text-xs text-muted-foreground mt-1">
                   Enter the IMAP host. Username and password are read from
                   secrets files.
                 </p>
               )}
-              {formData.type === 'github' && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Leave blank to fetch trending only. API token is read from
-                  secrets.
-                </p>
-              )}
+
               {formData.type === 'arxiv' && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Comma-separated category codes, e.g. cs.AI,stat.ML
+                  Comma-separated codes, e.g.{' '}
+                  <code className="bg-muted px-1 rounded">cs.AI,stat.ML,cs.LG</code>
                 </p>
               )}
             </div>
@@ -214,9 +314,16 @@ function AddSourceForm({ onClose }: AddSourceFormProps) {
           )}
 
           <div className="flex gap-2">
-            <Button type="submit" disabled={createSource.isPending}>
-              {createSource.isPending ? 'Adding…' : 'Add Source'}
-            </Button>
+            {isOAuth ? (
+              <Button type="submit" className="gap-2">
+                <Youtube className="h-4 w-4" />
+                Connect with Google
+              </Button>
+            ) : (
+              <Button type="submit" disabled={createSource.isPending}>
+                {createSource.isPending ? 'Adding…' : 'Add Source'}
+              </Button>
+            )}
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
@@ -229,31 +336,26 @@ function AddSourceForm({ onClose }: AddSourceFormProps) {
 
 // ── Source row ────────────────────────────────────────────────────────────────
 
-interface SourceRowProps {
-  source: Source
-  category: string
-}
-
-function SourceRow({ source, category }: SourceRowProps) {
+function SourceRow({ source, category }: { source: Source; category: string }) {
   const updateSource     = useUpdateSource()
   const deleteSource     = useDeleteSource()
   const triggerIngestion = useTriggerIngestion()
 
-  const colourClass =
-    CATEGORY_COLOURS[category] ?? CATEGORY_COLOURS.other
+  const colourClass = CATEGORY_COLOURS[category] ?? CATEGORY_COLOURS.other
 
-  const configPreview = source.url ?? JSON.stringify(source.config_json)
+  // For oauth sources don't show raw tokens in the UI
+  const configPreview =
+    source.type === 'youtube_subscriptions'
+      ? 'Connected via OAuth'
+      : (source.url ?? JSON.stringify(source.config_json))
 
   return (
     <Card>
       <CardContent className="flex items-center justify-between p-4">
-        {/* Left: info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-semibold">{source.name}</h3>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full font-medium ${colourClass}`}
-            >
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colourClass}`}>
               {source.type}
             </span>
             <Badge variant={source.enabled ? 'default' : 'secondary'}>
@@ -267,24 +369,17 @@ function SourceRow({ source, category }: SourceRowProps) {
 
           <p className="text-xs text-muted-foreground mt-0.5">
             Last fetched:{' '}
-            {source.last_fetched_at
-              ? formatDate(source.last_fetched_at)
-              : 'Never'}
+            {source.last_fetched_at ? formatDate(source.last_fetched_at) : 'Never'}
           </p>
         </div>
 
-        {/* Right: actions */}
         <div className="flex items-center gap-1 ml-4 shrink-0">
-          {/* Toggle enabled */}
           <Button
             variant="ghost"
             size="icon"
             title={source.enabled ? 'Disable source' : 'Enable source'}
             onClick={() =>
-              updateSource.mutate({
-                id: source.id,
-                data: { enabled: !source.enabled },
-              })
+              updateSource.mutate({ id: source.id, data: { enabled: !source.enabled } })
             }
             disabled={updateSource.isPending}
           >
@@ -295,7 +390,6 @@ function SourceRow({ source, category }: SourceRowProps) {
             )}
           </Button>
 
-          {/* Fetch now */}
           <Button
             variant="ghost"
             size="icon"
@@ -304,13 +398,10 @@ function SourceRow({ source, category }: SourceRowProps) {
             disabled={triggerIngestion.isPending}
           >
             <RefreshCw
-              className={`h-4 w-4 ${
-                triggerIngestion.isPending ? 'animate-spin' : ''
-              }`}
+              className={`h-4 w-4 ${triggerIngestion.isPending ? 'animate-spin' : ''}`}
             />
           </Button>
 
-          {/* Delete */}
           <Button
             variant="ghost"
             size="icon"
@@ -333,21 +424,39 @@ function SourceRow({ source, category }: SourceRowProps) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function SourcesPage() {
+  const [searchParams] = useSearchParams()
   const { data: sources = [], isLoading, isError } = useSources()
   const [showForm, setShowForm] = useState(false)
+  const [oauthSuccess, setOauthSuccess] = useState(false)
+
+  // Show success banner if redirected back from OAuth
+  useEffect(() => {
+    if (searchParams.get('youtube_connected') === '1') {
+      setOauthSuccess(true)
+      const t = setTimeout(() => setOauthSuccess(false), 6000)
+      return () => clearTimeout(t)
+    }
+  }, [searchParams])
 
   const grouped = groupByCategory(sources)
-
-  // Preserve a stable category order
-  const categoryOrder = ['newsletters', 'papers', 'social', 'podcasts', 'videos', 'other']
   const sortedCategories = [
-    ...categoryOrder.filter((c) => grouped[c]),
-    ...Object.keys(grouped).filter((c) => !categoryOrder.includes(c)),
+    ...CATEGORY_ORDER.filter((c) => grouped[c]),
+    ...Object.keys(grouped).filter((c) => !CATEGORY_ORDER.includes(c)),
   ]
 
   return (
     <div>
-      {/* ── Page header ── */}
+      {/* OAuth success banner */}
+      {oauthSuccess && (
+        <div className="mb-4 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-4 py-3 text-sm text-green-800 dark:text-green-200 flex items-center justify-between">
+          <span>✅ YouTube Subscriptions connected successfully!</span>
+          <button onClick={() => setOauthSuccess(false)}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Content Sources</h1>
@@ -361,33 +470,26 @@ export function SourcesPage() {
         </Button>
       </div>
 
-      {/* ── Add form ── */}
+      {/* Form */}
       {showForm && <AddSourceForm onClose={() => setShowForm(false)} />}
 
-      {/* ── States ── */}
+      {/* States */}
       {isLoading && <p className="text-muted-foreground">Loading sources…</p>}
-
       {isError && (
         <p className="text-destructive">
           Failed to load sources. Is the backend running?
         </p>
       )}
 
-      {/* ── Source list ── */}
+      {/* List */}
       {!isLoading && !isError && (
         <div className="space-y-8">
           {sortedCategories.map((category) => (
             <div key={category}>
-              <h2 className="text-lg font-semibold capitalize mb-3">
-                {category}
-              </h2>
+              <h2 className="text-lg font-semibold capitalize mb-3">{category}</h2>
               <div className="space-y-3">
                 {grouped[category].map((source) => (
-                  <SourceRow
-                    key={source.id}
-                    source={source}
-                    category={category}
-                  />
+                  <SourceRow key={source.id} source={source} category={category} />
                 ))}
               </div>
             </div>

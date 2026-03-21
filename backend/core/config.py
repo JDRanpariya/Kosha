@@ -9,12 +9,10 @@ from pydantic_settings import BaseSettings
 
 def read_secret(secret_name: str, default: str = "") -> str:
     """Read a secret from Docker secrets or local dev fallback."""
-    # Docker secrets (production)
     docker_path = Path(f"/run/secrets/{secret_name}")
     if docker_path.exists():
         return docker_path.read_text().strip()
 
-    # Local dev secrets
     local_path = (
         Path(__file__).parent.parent.parent
         / "infra"
@@ -48,14 +46,19 @@ class Settings(BaseSettings):
     )
 
     # ── Connector credentials ─────────────────────────────────────────────────
-    SPOTIFY_CLIENT_ID: str = Field(
-        default_factory=lambda: read_secret("spotify_client_id")
+    SPOTIFY_API_TOKEN: str = Field(
+        default_factory=lambda: read_secret("spotify_api_token")
     )
-    SPOTIFY_CLIENT_SECRET: str = Field(
-        default_factory=lambda: read_secret("spotify_client_secret")
-    )
+    # YouTube Data API key (for manual channel connector)
     YOUTUBE_API_KEY: str = Field(
         default_factory=lambda: read_secret("youtube_api_key")
+    )
+    # YouTube OAuth credentials (for subscriptions connector)
+    YOUTUBE_CLIENT_ID: str = Field(
+        default_factory=lambda: read_secret("youtube_client_id")
+    )
+    YOUTUBE_CLIENT_SECRET: str = Field(
+        default_factory=lambda: read_secret("youtube_client_secret")
     )
     GITHUB_API_TOKEN: str = Field(
         default_factory=lambda: read_secret("github_api_token")

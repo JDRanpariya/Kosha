@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.routes import digest, sources, feedback, ingest, search
+from backend.api.routes import youtube_oauth
 from backend.api.schemas import StatusResponse
 from backend.core.config import settings
 from backend.core.logging import setup_logging, set_correlation_id, get_logger
@@ -15,14 +16,9 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan events."""
-    # Startup
     setup_logging(level="INFO")
     logger.info("Kosha API starting up")
-    
     yield
-    
-    # Shutdown
     logger.info("Kosha API shutting down")
 
 
@@ -34,11 +30,8 @@ app = FastAPI(
 )
 
 
-# Middleware
-
 @app.middleware("http")
 async def correlation_id_middleware(request: Request, call_next):
-    """Add correlation ID to each request."""
     cid = request.headers.get("X-Correlation-ID")
     set_correlation_id(cid)
     response = await call_next(request)
@@ -53,17 +46,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# Routes
-
-app.include_router(sources.router, prefix="/api/sources", tags=["sources"])
-app.include_router(ingest.router, prefix="/api/ingest", tags=["ingest"])
-app.include_router(search.router, prefix="/api/search", tags=["search"])
-app.include_router(digest.router, prefix="/api/digest", tags=["digest"])
-app.include_router(feedback.router, prefix="/api/feedback", tags=["feedback"])
+app.include_router(sources.router,       prefix="/api/sources",  tags=["sources"])
+app.include_router(ingest.router,        prefix="/api/ingest",   tags=["ingest"])
+app.include_router(search.router,        prefix="/api/search",   tags=["search"])
+app.include_router(digest.router,        prefix="/api/digest",   tags=["digest"])
+app.include_router(feedback.router,      prefix="/api/feedback", tags=["feedback"])
+app.include_router(youtube_oauth.router, prefix="/api/youtube/oauth", tags=["youtube"])
 
 
 @app.get("/health", response_model=StatusResponse)
 def health_check() -> StatusResponse:
-    """Health check endpoint."""
     return StatusResponse(status="healthy")

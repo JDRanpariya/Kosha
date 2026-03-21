@@ -7,6 +7,7 @@ from connectors.social.reddit import RedditConnector
 from connectors.dev.github import GitHubConnector
 from connectors.podcasts.spotify import SpotifyPodcastConnector
 from connectors.youtube.youtube import YouTubeConnector
+from connectors.youtube.youtube_subscriptions import YouTubeSubscriptionsConnector
 
 CONNECTOR_REGISTRY: dict[str, dict[str, dict]] = {
 
@@ -42,13 +43,8 @@ CONNECTOR_REGISTRY: dict[str, dict[str, dict]] = {
             "display_name": "Newsletter via Email (IMAP)",
             "required_fields": ["imap_host", "username", "password"],
             "optional_fields": [
-                "imap_port",
-                "mailbox",
-                "sender_filter",
-                "subject_filter",
-                "max_results",
-                "mark_as_read",
-                "only_unread",
+                "imap_port", "mailbox", "sender_filter",
+                "subject_filter", "max_results", "mark_as_read", "only_unread",
             ],
             "example_config": {
                 "imap_host": "imap.gmail.com",
@@ -67,11 +63,7 @@ CONNECTOR_REGISTRY: dict[str, dict[str, dict]] = {
             "display_name": "Hacker News",
             "required_fields": [],
             "optional_fields": [
-                "tags",
-                "query",
-                "min_points",
-                "max_results",
-                "sort_by_date",
+                "tags", "query", "min_points", "max_results", "sort_by_date",
             ],
             "example_config": {"tags": "front_page", "min_points": 100},
         },
@@ -80,11 +72,8 @@ CONNECTOR_REGISTRY: dict[str, dict[str, dict]] = {
             "display_name": "Reddit",
             "required_fields": ["subreddits"],
             "optional_fields": [
-                "sort",
-                "time_filter",
-                "max_results",
-                "min_score",
-                "include_self_text",
+                "sort", "time_filter", "max_results",
+                "min_score", "include_self_text",
             ],
             "example_config": {
                 "subreddits": ["MachineLearning", "LocalLLaMA"],
@@ -94,21 +83,35 @@ CONNECTOR_REGISTRY: dict[str, dict[str, dict]] = {
         "github": {
             "class": GitHubConnector,
             "display_name": "GitHub Releases & Trending",
-            "required_fields": [],
+            "required_fields": [],   # everything is optional
             "optional_fields": [
-                "api_token",
-                "repos",
-                "fetch_releases",
-                "fetch_trending",
-                "trending_language",
-                "trending_since",
-                "max_results",
+                "api_token", "repos", "fetch_releases",
+                "fetch_trending", "trending_language",
+                "trending_since", "max_results",
             ],
             "example_config": {
-                "repos": ["openai/whisper", "ollama/ollama"],
+                "repos": [],
                 "fetch_trending": True,
                 "trending_language": "python",
                 "trending_since": "weekly",
+            },
+        },
+    },
+
+    # ── Dev ───────────────────────────────────────────────────────────────────
+    "dev": {
+        "github": {
+            "class": GitHubConnector,
+            "display_name": "GitHub Releases & Trending",
+            "required_fields": [],
+            "optional_fields": [
+                "api_token", "repos", "fetch_releases",
+                "fetch_trending", "trending_language",
+                "trending_since", "max_results",
+            ],
+            "example_config": {
+                "repos": [],
+                "fetch_trending": True,
             },
         },
     },
@@ -128,13 +131,23 @@ CONNECTOR_REGISTRY: dict[str, dict[str, dict]] = {
     "videos": {
         "youtube": {
             "class": YouTubeConnector,
-            "display_name": "YouTube",
+            "display_name": "YouTube Channel",
             "required_fields": ["api_key", "channels"],
             "optional_fields": ["max_results"],
             "example_config": {
                 "channels": ["UCBcRF18a7Qf58cCRy5xuWwQ"],
                 "max_results": 10,
             },
+        },
+        "youtube_subscriptions": {
+            "class": YouTubeSubscriptionsConnector,
+            "display_name": "YouTube Subscriptions (OAuth)",
+            "required_fields": ["access_token"],
+            "optional_fields": [
+                "refresh_token", "client_id", "client_secret",
+                "max_videos_per_channel", "max_channels",
+            ],
+            "example_config": {},  # configured via OAuth flow only
         },
     },
 }
@@ -143,15 +156,11 @@ CONNECTOR_REGISTRY: dict[str, dict[str, dict]] = {
 # ── Public helpers ────────────────────────────────────────────────────────────
 
 def get_connector_class(category: str, source_type: str):
-    """Return the connector class for category + type, or None."""
-    entry = CONNECTOR_REGISTRY.get(
-        category, {}
-    ).get(source_type)
+    entry = CONNECTOR_REGISTRY.get(category, {}).get(source_type)
     return entry["class"] if entry else None
 
 
 def list_connectors() -> list[dict]:
-    """Flat list of all registered connectors — used by /api/sources/available."""
     result = []
     for category, types in CONNECTOR_REGISTRY.items():
         for source_type, meta in types.items():
