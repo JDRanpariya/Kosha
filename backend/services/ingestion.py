@@ -7,6 +7,8 @@ from backend.db.models import Item, ItemContent, Source
 from connectors.registry import CONNECTOR_REGISTRY
 from schemas.connector_output import ConnectorOutput
 
+from sqlalchemy.exc import IntegrityError
+
 logger = logging.getLogger(__name__)
 
 def get_connector_class(category: str, source_type: str):
@@ -24,7 +26,7 @@ def process_source(db: Session, source: Source, category: str):
     Full ingestion workflow for a single source.
     """
     logger.info(f"Starting ingestion for source {source.id} ({source.type})")
-    
+
     # 1. Dynamically get the connector class from your registry
     ConnectorClass = get_connector_class(category, source.type)
     if not ConnectorClass:
@@ -46,49 +48,39 @@ def process_source(db: Session, source: Source, category: str):
 
     new_items_count = 0
     for item in fetched_items:
-        # 4. Deduplication: Generate a unique content hash
-        # We use the URL as a stable identifier for now.
-        url_hash = hashlib.sha256(str(item.url).encode()).hexdigest()
-        
-        # Check if the item already exists in the database
-        existing_item = db.query(Item).filter(Item.content_hash == url_hash).first()
-        if existing_item:
+        content_hash = hashlib.sha256(str(item.url).encode()).hexdigest()
+
+        if db.query(Item).filter(Item.content_hash == content_hash).first():
             logger.debug(f"Skipping existing item: {item.title}")
             continue
-            
-        # 5. Atomic Storage: Save metadata and content
-        try:
-            # Create core metadata record
-            db_item = Item(
-                source_id=source.id,
-                external_id=str(item.url),
-                title=item.title,
-                author=item.author,
-                published_at=item.published_at,
-                url=str(item.url),
-                content_hash=content_hash
-            )
-            db.add(db_item)
-            db.flush() # Flush to get the ID for the content record
-            
-            # Create associated content record
-            db_content = ItemContent(
-                item_id=db_item.id,
-                raw_content=item.content,
-                parsed_content=item.content, # Normalized markdown
-                metadata_json=item.metadata
-            )
-            db.add(db_content)
-            new_items_count += 1
-            
-        except Exception as e:
-            logger.error(f"Failed to save item {item.title}: {e}")
-            db.rollback()
-            continue
 
-    # 6. Finalize: Update source status and commit
+        try:
+            with db.begin_nested():  # savepoint — only rolls back this item on failure
+                db_item = Item(
+                    source_id=source.id,
+                    external_id=str(item.url),
+                    title=item.title,
+                    author=item.author,
+                    published_at=item.published_at,
+                    url=str(item.url),
+                    content_hash=content_hash,
+                )
+                db.add(db_item)
+                db.flush()
+                db.add(ItemContent(
+                    item_id=db_item.id,
+                    raw_content=item.content,
+                    parsed_content=item.content,
+                    metadata_json=item.metadata,
+                ))
+            new_items_count += 1
+        except IntegrityError:
+            logger.warning(f"Race condition duplicate for: {item.title}")
+        except Exception as e:
+            logger.error(f"Failed to save '{item.title}': {e}")
+    
     source.last_fetched_at = func.now()
-    db.commit()
+    db.commit()  # commits all successful savepoints
     
     logger.info(f"Ingestion complete. Added {new_items_count} new items for source {source.id}.")
     return new_items_count
