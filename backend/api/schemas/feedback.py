@@ -1,33 +1,28 @@
 # backend/api/schemas/feedback.py
 
-"""
-Feedback endpoint schemas.
-"""
-
 from typing import Literal
-
 from backend.api.schemas.common import BaseSchema
 from backend.api.schemas.items import ItemSummary
 
+# Added 'unsave' — the frontend sends this to remove a saved interaction.
 
-InteractionType = Literal["viewed", "saved", "dismissed"]
+# 'viewed' is kept for future implicit tracking (e.g. scroll-past).
+
+InteractionType = Literal["viewed", "saved", "dismissed", "unsave"]
 
 
 class FeedbackRequest(BaseSchema):
-    """Feedback submission request."""
     item_id: int
     type: InteractionType
 
 
 class FeedbackResponse(BaseSchema):
-    """Feedback submission response."""
     status: str
     type: InteractionType
     item_id: int
 
 
 class SavedItemsResponse(BaseSchema):
-    """Saved items response."""
     count: int
     item_ids: list[int]
     items: list[ItemSummary]

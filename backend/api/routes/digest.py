@@ -3,14 +3,12 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
 
 from backend.api.dependencies import get_db, ensure_user_exists
-from backend.api.schemas import DigestResponse, ItemDetailResponse, ItemSummary, ItemDetail
+from backend.api.schemas import DigestResponse, ItemDetailResponse
 from backend.core.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from backend.services.items import ItemService
-from sqlalchemy.orm import joinedload
-
-from sqlalchemy.orm import Session
 
 router = APIRouter()
 
@@ -22,9 +20,12 @@ def get_daily_digest(
     limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     offset: int = Query(0, ge=0),
 ) -> DigestResponse:
-    """Get items from the last 24 hours with pagination."""
+    """Get items from the last 24 hours, excluding dismissed items."""
     service = ItemService(db)
-    items, total = service.get_recent(hours=24, limit=limit, offset=offset)
+    # Pass user_id so dismissed items are filtered out
+    items, total = service.get_recent(
+        user_id=user_id, hours=24, limit=limit, offset=offset
+    )
     return DigestResponse(
         date=date.today(),
         total=total,
@@ -43,9 +44,9 @@ def get_item_detail(
     """Get full item with content."""
     service = ItemService(db)
     result = service.get_with_content(item_id)
-    
+
     if not result:
         raise HTTPException(status_code=404, detail="Item not found")
-    
+
     item, content = result
     return ItemDetailResponse(item=ItemService.to_detail(item, content))

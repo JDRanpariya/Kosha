@@ -19,14 +19,13 @@ export function ItemDetail({ itemId, isSaved, onClose }: ItemDetailProps) {
 
   const handleSave = () => {
     if (!item) return
-    feedback.mutate({ item_id: item.id, type: isSaved ? 'viewed' : 'saved' })
+    // 'unsave' removes from list; 'saved' adds to list
+    feedback.mutate({ item_id: item.id, type: isSaved ? 'unsave' : 'saved' })
   }
 
   const sourceType = item?.metadata?.source_type as string | undefined
 
   return (
-    /* The panel is NOT a modal overlay — it sits inline in the split layout.
-       On mobile it becomes full-width. No backdrop, no z-fighting with sidebar. */
     <div className="flex flex-col h-full border-l border-border bg-background overflow-hidden">
 
       {/* ── Header ── */}
@@ -44,7 +43,7 @@ export function ItemDetail({ itemId, isSaved, onClose }: ItemDetailProps) {
                 )}
               >
                 <Bookmark className={cn('h-3 w-3', isSaved && 'fill-current')} />
-                {isSaved ? 'In reading list' : 'Save to list'}
+                {isSaved ? 'Remove from list' : 'Save to list'}
               </button>
               <a
                 href={item.url}
@@ -83,26 +82,22 @@ export function ItemDetail({ itemId, isSaved, onClose }: ItemDetailProps) {
         ) : item ? (
           <article className="px-7 py-8">
 
-            {/* Source + date eyebrow */}
             <div className="flex items-center gap-2 text-[10px] text-ink-faint uppercase tracking-[0.1em] mb-4">
-              {sourceType && <span>{sourceType.replace('_', ' ')}</span>}
+              {sourceType && <span>{sourceType.replace(/_/g, ' ')}</span>}
               {sourceType && <span>·</span>}
               <span>{formatDate(item.published_at)}</span>
             </div>
 
-            {/* Title — large, serif, unhurried */}
             <h1 className="font-serif text-[22px] font-normal leading-snug text-ink mb-3 tracking-tight">
               {item.title}
             </h1>
 
-            {/* Author */}
             {item.author && (
               <p className="text-[12px] text-ink-mid mb-7 pb-7 border-b border-border">
                 {item.author}
               </p>
             )}
 
-            {/* Body */}
             {item.content ? (
               <div className="prose-reading space-y-0">
                 {item.content
@@ -116,9 +111,7 @@ export function ItemDetail({ itemId, isSaved, onClose }: ItemDetailProps) {
               </div>
             ) : (
               <div className="py-12 text-center space-y-2">
-                <p className="text-[13px] text-ink-faint">
-                  Full content not stored.
-                </p>
+                <p className="text-[13px] text-ink-faint">Full content not stored.</p>
                 <a
                   href={item.url}
                   target="_blank"
@@ -133,7 +126,6 @@ export function ItemDetail({ itemId, isSaved, onClose }: ItemDetailProps) {
         ) : null}
       </div>
 
-      {/* ── Teach strip — pinned to bottom ── */}
       {item && <TeachStrip item={item} />}
     </div>
   )

@@ -156,6 +156,83 @@ function AddForm({ onClose }: { onClose: () => void }) {
     )
 }
 
+// Add this function before SourceRow — replaces the raw JSON.stringify call
+
+function describeSource(source: Source): string {
+    const cfg = source.config_json ?? {}
+
+    switch (source.type) {
+        case 'rss':
+            return (cfg.feed_url as string) ?? source.url ?? 'RSS feed'
+
+        case 'substack': {
+            const url = cfg.publication_url as string | undefined
+            if (!url) return 'Substack'
+            // Strip https:// and /feed suffix for readability
+            return url.replace(/^https?:\/\//, '').replace(/\/feed$/, '')
+        }
+
+        case 'email_imap': {
+            const host = cfg.imap_host as string | undefined
+            const mailbox = cfg.mailbox as string | undefined
+            const filter = cfg.sender_filter as string | undefined
+            const parts = [host ?? 'IMAP']
+            if (mailbox && mailbox !== 'INBOX') parts.push(mailbox)
+            if (filter) parts.push(`from: ${filter}`)
+            return parts.join(' · ')
+        }
+
+        case 'arxiv': {
+            const cats = cfg.categories as string[] | undefined
+            return cats?.join(', ') ?? 'arXiv'
+        }
+
+        case 'hackernews': {
+            const tags = cfg.tags as string | undefined
+            const minPts = cfg.min_points as number | undefined
+            const parts = [tags ?? 'front_page']
+            if (minPts) parts.push(`≥${minPts} pts`)
+            return parts.join(' · ')
+        }
+
+        case 'reddit': {
+            const subs = cfg.subreddits as string[] | undefined
+            if (!subs?.length) return 'Reddit'
+            return subs.map(s => `r/${s}`).join(', ')
+        }
+
+        case 'github': {
+            const repos = cfg.repos as string[] | undefined
+            const hasRepos = repos && repos.length > 0
+            const lang = cfg.trending_language as string | undefined
+            const since = cfg.trending_since as string | undefined
+            const parts: string[] = []
+            if (hasRepos) parts.push(repos!.join(', '))
+            if (cfg.fetch_trending !== false) {
+                parts.push(`trending${lang ? ` ${lang}` : ''} · ${since ?? 'daily'}`)
+            }
+            return parts.join(' + ') || 'GitHub'
+        }
+
+        case 'spotify': {
+            const showId = cfg.show_id as string | undefined
+            return showId ? `Show ${showId}` : 'Spotify podcast'
+        }
+
+        case 'youtube': {
+            const channels = cfg.channels as string[] | undefined
+            if (!channels?.length) return 'YouTube'
+            return `Youtube channel${channels.length > 1 ? 's' : ''}`
+        }
+
+        case 'youtube_subscriptions':
+            return 'OAuth — your subscriptions'
+
+        default:
+            return source.url ?? source.type
+    }
+}
+
 /* ─── Source row ───────────────────────────────────────────────────────── */
 function SourceRow({ source }: { source: Source }) {
     const update = useUpdateSource()
@@ -177,7 +254,7 @@ function SourceRow({ source }: { source: Source }) {
                     )}
                 </div>
                 <p className="text-xs text-ink-faint mt-0.5 truncate">
-                    {source.type === 'youtube_subscriptions' ? 'OAuth — subscriptions' : (source.url ?? JSON.stringify(source.config_json))}
+                    {describeSource(source)}
                 </p>
                 {source.last_fetched_at && (
                     <p className="text-xs text-ink-faint/60 mt-0.5">

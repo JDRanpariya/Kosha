@@ -38,11 +38,8 @@ export interface Item {
   url: string
   published_at: string | null
   source_id: number
-  source_type?: string   // populated by backend join
+  source_type?: string
   preview?: string
-  // NOTE: similarity is intentionally absent from Phase 1 Item.
-  // It will be added back in Phase 2 as `resonance?: number`
-  // and only shown when value >= 0.7.
 }
 
 export interface ItemDetail extends Item {
@@ -80,20 +77,16 @@ export interface SavedResponse {
 
 export interface FeedbackType {
   item_id: number
-  type: 'viewed' | 'saved' | 'dismissed'
-  user_id?: number
+  // 'unsave' removes the item from the reading list (deletes saved interaction)
+  // 'dismissed' hides the item from the digest permanently
+  type: 'viewed' | 'saved' | 'unsave' | 'dismissed'
 }
 
 // ── Teach signal ──────────────────────────────────────────────────────────
-// The core data structure for Phase 2 preference learning.
-// Records not just *that* you liked something, but *why*.
 
 export interface TeachSignal {
   item_id: number
-  // Which tag(s) the user selected as their reason for interest.
-  // Tags are generated from item content by the backend.
   selected_tags: string[]
-  // Optional free-text elaboration (Phase 2+)
   note?: string
 }
 
