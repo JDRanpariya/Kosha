@@ -1,5 +1,3 @@
-# compose.yml
-
 version: '3.8'
 
 services:
@@ -62,7 +60,6 @@ services:
 
     restart: unless-stopped
 
-  # Add backend service
   backend:
     build:
       context: .
@@ -70,11 +67,11 @@ services:
     container_name: kosha-backend
     volumes:
       - .:/app
+
     ports:
       - "8000:8000"
 
     environment:
-      # Non-secret config via env vars
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: kosha
@@ -82,11 +79,13 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
     secrets:
-      # Secrets via Docker secrets
       - db_password
       - spotify_client_id
       - spotify_client_secret
       - youtube_api_key
+      - github_api_token
+      - email_username
+      - email_password
 
     depends_on:
       postgres:
@@ -104,8 +103,8 @@ services:
       - "5173:5173"
 
     volumes:
-      - ./frontend:/app        # hot reload
-      - /app/node_modules      # don't mount over installed modules
+      - ./frontend:/app
+      - /app/node_modules
 
     environment:
       - NODE_ENV=development
@@ -123,22 +122,26 @@ services:
     command: celery -A backend.worker.celery_app worker --loglevel=info
     environment:
       DB_HOST: postgres
-      DB_PORT: 5432       
-      DB_USER: kosha      
-      DB_NAME: kosha_db   
+      DB_PORT: 5432
+      DB_USER: kosha
+      DB_NAME: kosha_db
       REDIS_HOST: redis
-      REDIS_PORT: 6379    
+      REDIS_PORT: 6379
     secrets:
       - db_password
       - spotify_client_id
       - spotify_client_secret
       - youtube_api_key
+      - github_api_token
+      - email_username
+      - email_password
 
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
   beat:
     build:
@@ -148,15 +151,18 @@ services:
     command: celery -A backend.worker.celery_app beat --loglevel=info
     environment:
       DB_HOST: postgres
-      DB_PORT: 5432       
-      DB_USER: kosha      
-      DB_NAME: kosha_db   
+      DB_PORT: 5432
+      DB_USER: kosha
+      DB_NAME: kosha_db
       REDIS_HOST: redis
-      REDIS_PORT: 6379    
+      REDIS_PORT: 6379
     secrets:
       - db_password
+
     depends_on:
       - worker
+
+    restart: unless-stopped
 
 volumes:
   postgres_data:
@@ -176,3 +182,9 @@ secrets:
     file: ./infra/secrets/spotify_client_secret.txt
   youtube_api_key:
     file: ./infra/secrets/youtube_api_key.txt
+  github_api_token:
+    file: ./infra/secrets/github_api_token.txt
+  email_username:
+    file: ./infra/secrets/email_username.txt
+  email_password:
+    file: ./infra/secrets/email_password.txt

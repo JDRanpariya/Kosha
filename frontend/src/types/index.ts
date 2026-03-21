@@ -1,7 +1,16 @@
 export interface Source {
   id: number
   name: string
-  type: 'rss' | 'arxiv' | 'spotify' | 'youtube'
+  type:
+    | 'rss'
+    | 'substack'
+    | 'email_imap'
+    | 'arxiv'
+    | 'hackernews'
+    | 'reddit'
+    | 'github'
+    | 'spotify'
+    | 'youtube'
   url: string | null
   enabled: boolean
   last_fetched_at: string | null
@@ -26,7 +35,7 @@ export interface ItemDetail extends Item {
 
 export interface DigestResponse {
   date: string
-  total: number   // total available in window, not just this page
+  total: number
   items: Item[]
 }
 
@@ -53,4 +62,13 @@ export interface SourceCreate {
   type: string
   url?: string
   config_json?: Record<string, unknown>
+}
+
+export interface ConnectorMeta {
+  category: string
+  type: string
+  display_name: string
+  required_fields: string[]
+  optional_fields: string[]
+  example_config: Record<string, unknown>
 }

@@ -23,15 +23,15 @@ dependencies = [
     "pydantic>=2.7.0",
     "pydantic-settings>=2.3.0",
 
-    # Connectors - shared
+    # Connectors — shared
     "feedparser>=6.0.11",
     "markdownify>=0.13.0",
     "httpx>=0.27.0",
 
-    # Connectors - Spotify
+    # Connectors — Spotify
     "spotipy>=2.23.0",
 
-    # Connectors - YouTube
+    # Connectors — YouTube
     "google-api-python-client>=2.130.0",
     "google-auth-oauthlib>=1.2.0",
 
@@ -39,8 +39,6 @@ dependencies = [
     "celery[redis]>=5.4.0",
     "redis>=5.0.0",
 ]
-
-# Optional groups — install with: uv sync --extra ml
 
 [project.optional-dependencies]
 ml = [
@@ -50,7 +48,7 @@ ml = [
 dev = [
     "pytest>=8.2.0",
     "pytest-asyncio>=0.23.0",
-    "httpx>=0.27.0",       # also used as async test client for FastAPI
+    "httpx>=0.27.0",
     "ruff>=0.5.0",
     "mypy>=1.10.0",
     "types-redis>=4.6.0",
@@ -59,8 +57,6 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-# ── Tool configs ────────────────────────────────────────────────────────────
 
 [tool.hatch.build.targets.wheel]
 packages = ["backend", "connectors", "schemas"]
@@ -71,7 +67,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
-ignore = ["E501"]           # line too long — ruff format handles it
+ignore = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["backend", "connectors", "schemas"]
@@ -80,9 +76,9 @@ known-first-party = ["backend", "connectors", "schemas"]
 python_version = "3.11"
 strict = false
 warn_return_any = true
-ignore_missing_imports = true   # until stubs exist for feedparser etc.
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-pythonpath = ["."]              # ensures project root is on sys.path
+pythonpath = ["."]
