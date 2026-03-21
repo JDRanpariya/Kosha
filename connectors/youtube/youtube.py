@@ -1,106 +1,233 @@
-import os
-import sqlite3
-import pandas as pd
+# connectors/youtube/youtube.py
+"""
+YouTube connector using the Data API v3.
 
-import google_auth_oauthlib.flow
-import googleapiclient.discovery
-import googleapiclient.errors
-from joblib import dump, load
+Fetches recent uploads from specified channels using an API key.
+No OAuth needed — only public data is accessed.
 
-from connectors.base import ConnectorConfig, BaseConnector
+Quota note: each channel costs ~3 units (1 channels.list + 1 playlistItems.list).
+Default quota is 10,000 units/day, so ~3,000 channels/day is the ceiling.
+"""
 
-scopes = ["https://www.googleapis.com/auth/youtube.readonly"]
+import logging
+from datetime import datetime, timezone
 
-con = sqlite3.connect("data.db")
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from markdownify import markdownify as md
+
+from connectors.base import BaseConnector, ConnectorConfig
+from schemas.connector_output import ConnectorOutput
+
+logger = logging.getLogger(__name__)
+
 
 class YouTubeConfig(ConnectorConfig):
     api_key: str
-    channels: list[str]
+    channels: list[str]   # Channel IDs, e.g. ["UCBcRF18a7Qf58cCRy5xuWwQ"]
+    max_results: int = 10  # Videos to fetch per channel (max 50 per API call)
 
 
 class YouTubeConnector(BaseConnector):
+    """
+    Fetches the latest videos from a list of YouTube channel IDs
+    using the YouTube Data API v3.
+
+    Getting a channel ID:
+      - Go to the channel page
+      - View page source, search for "channelId"
+      - Or use: https://www.youtube.com/@ChannelHandle/about
+
+        and inspect the canonical URL
+    """
+
     ConfigModel = YouTubeConfig
 
-    def fetch(self):
-        # guaranteed that api_key and channels are present
-        ...
+    def _build_client(self):
+        """Create an authenticated YouTube API client."""
+        return build(
+            "youtube",
+            "v3",
+            developerKey=self.config.api_key,
+            # Disable file-based cache (avoids warning noise in server envs)
+            cache_discovery=False,
+        )
 
-def update_youtube_subscriptions():
-    data = get_list_of_subscribed_channels()
+    def _get_uploads_playlist_id(
+        self,
+        youtube,
+        channel_id: str,
+    ) -> str | None:
+        """
+        Every YouTube channel has a hidden 'uploads' playlist.
+        This is the most reliable way to paginate a channel's videos.
+        """
+        try:
+            response = (
+                youtube.channels()
+                .list(part="contentDetails", id=channel_id)
+                .execute()
+            )
+        except HttpError as e:
+            logger.error(f"API error fetching channel '{channel_id}': {e}")
+            return None
 
-    try:
-        df = pd.read_sql('select * from youtube', con)
-        youtube = pd.DataFrame(columns=list(df.columns))
-        for channel in data:
-            
-            channelId = channel['snippet']['resourceId']['channelId']
+        items = response.get("items", [])
+        if not items:
+            logger.warning(
+                f"Channel ID '{channel_id}' not found or has no content. "
+                "Check that the ID is correct (not a @handle)."
+            )
+            return None
 
-            if channelId not in df['channel_id'].tolist():
-                item = {
-                        "channel_id": channelId,
-                        "title": channel['snippet']['title'],
-                        "description": channel['snippet']['description'],
-                        "thumbnail_url": channel['snippet']['thumbnails']['high']['url']
-                        }
-                youtube = youtube.append(item, ignore_index=True)
+        return items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
 
-        youtube.to_sql("youtube", con, if_exists='append', index=False)
+    def _get_playlist_video_ids(
+        self,
+        youtube,
+        playlist_id: str,
+    ) -> list[str]:
+        """
+        Fetches video IDs from a playlist (the uploads playlist).
+        Returns at most self.config.max_results IDs.
+        """
+        try:
+            response = (
+                youtube.playlistItems()
+                .list(
+                    part="contentDetails",
+                    playlistId=playlist_id,
+                    maxResults=min(self.config.max_results, 50),
+                )
+                .execute()
+            )
+        except HttpError as e:
+            logger.error(f"API error fetching playlist '{playlist_id}': {e}")
+            return []
 
-    except pd.errors.DatabaseError as e:
-        channelId = []
-        title = []
-        description = []
-        thumbnail_url = []
+        return [
+            item["contentDetails"]["videoId"]
+            for item in response.get("items", [])
+            if "contentDetails" in item
+        ]
 
-        for channel in data:
-            channelId.append(channel['snippet']['resourceId']['channelId'])
-            title.append(channel['snippet']['title'])
-            description.append(channel['snippet']['description'])
-            thumbnail_url.append(channel['snippet']['thumbnails']['high']['url'])
+    def _get_video_details(
+        self,
+        youtube,
+        video_ids: list[str],
+    ) -> dict[str, dict]:
+        """
+        Batch-fetches full video details (snippet + statistics + contentDetails).
+        Returns a dict keyed by video ID.
+        One API call for up to 50 videos — much cheaper than one call per video.
+        """
+        if not video_ids:
+            return {}
+        try:
+            response = (
+                youtube.videos()
+                .list(
+                    part="snippet,statistics,contentDetails",
+                    id=",".join(video_ids),
+                )
+                .execute()
+            )
+        except HttpError as e:
+            logger.error(f"API error fetching video details: {e}")
+            return {}
 
-        items = {
-                "channel_id": channelId,
-                "title": title,
-                "description": description,
-                "thumbnail_url": thumbnail_url
-                }
-        youtube = pd.DataFrame(items, columns=list(items.keys())) 
+        return {item["id"]: item for item in response.get("items", [])}
 
-        youtube.to_sql("youtube", con, index=False)
+    def fetch(self) -> list[ConnectorOutput]:
+        """
+        Main entry point. Iterates over configured channels and returns
+        a flat list of ConnectorOutput objects.
+        """
+        youtube = self._build_client()
+        results: list[ConnectorOutput] = []
 
+        for channel_id in self.config.channels:
+            logger.info(f"Processing YouTube channel: {channel_id}")
 
+            # Step 1 — resolve channel → uploads playlist
+            playlist_id = self._get_uploads_playlist_id(youtube, channel_id)
+            if not playlist_id:
+                continue  # logged inside helper
 
-def get_list_of_subscribed_channels():
-    # Disable OAuthlib's HTTPS verification when running locally.
-    # *DO NOT* leave this option enabled in production.
-    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+            # Step 2 — get recent video IDs from that playlist
+            video_ids = self._get_playlist_video_ids(youtube, playlist_id)
+            if not video_ids:
+                logger.warning(f"No videos found in playlist for channel: {channel_id}")
+                continue
 
-    api_service_name = "youtube"
-    api_version = "v3"
-    client_secrets_file = "client_secret_youtube.json"
+            # Step 3 — batch-fetch full details (1 API call for all videos)
+            video_details = self._get_video_details(youtube, video_ids)
 
-    # Get credentials and create an API client
-    flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-        client_secrets_file, scopes)
-    credentials = flow.run_local_server()
-    youtube = googleapiclient.discovery.build(
-        api_service_name, api_version, credentials=credentials)
+            # Step 4 — build ConnectorOutput for each video
+            for video_id in video_ids:
+                detail = video_details.get(video_id)
+                if not detail:
+                    logger.debug(f"Missing detail for video {video_id}, skipping")
+                    continue
 
-    data = []
-    pageToken = ""
-    while True:
-        res = youtube.subscriptions().list(
-        part="snippet,contentDetails",
-        mine=True,
-        maxResults=50,
-        pageToken=pageToken if pageToken != "" else ""
-        ).execute()
-        v = res.get('items', [])
-        if v:
-            data.extend(v)
-        pageToken = res.get('nextPageToken')
-        if not pageToken:
-            break
+                snippet = detail.get("snippet", {})
+                statistics = detail.get("statistics", {})
+                content_details = detail.get("contentDetails", {})
 
-    return data    
+                # --- URL ---
+                url = f"https://www.youtube.com/watch?v={video_id}"
 
+                # --- Author (channel name, not individual person) ---
+                author = snippet.get("channelTitle", "Unknown Channel")
+
+                # --- Published date (YouTube returns ISO 8601 with Z suffix) ---
+                published_at: datetime | None = None
+                raw_date = snippet.get("publishedAt")
+                if raw_date:
+                    try:
+                        published_at = datetime.fromisoformat(
+                            raw_date.replace("Z", "+00:00")
+                        ).astimezone(timezone.utc).replace(tzinfo=None)
+                        # Store as naive UTC to match other connectors
+                    except ValueError:
+                        logger.debug(f"Could not parse date '{raw_date}' for {video_id}")
+
+                # --- Content (video description → Markdown) ---
+                raw_description = snippet.get("description", "")
+                clean_content = md(raw_description).strip() if raw_description else ""
+
+                # --- Thumbnail (prefer high quality) ---
+                thumbnails = snippet.get("thumbnails", {})
+                thumbnail_url = (
+                    thumbnails.get("maxres", {}).get("url")
+                    or thumbnails.get("high", {}).get("url")
+                    or thumbnails.get("default", {}).get("url")
+                )
+
+                output = ConnectorOutput(
+                    title=snippet.get("title", "Untitled Video"),
+                    url=url,
+                    author=author,
+                    published_at=published_at,
+                    content=clean_content,
+                    metadata={
+                        "source_type": "video",
+                        "video_id": video_id,
+                        "channel_id": channel_id,
+                        "channel_title": author,
+                        "thumbnail_url": thumbnail_url,
+                        "duration_iso": content_details.get("duration"),  # e.g. "PT12M34S"
+                        "view_count": statistics.get("viewCount"),
+                        "like_count": statistics.get("likeCount"),
+                        "comment_count": statistics.get("commentCount"),
+                        "tags": snippet.get("tags", []),
+                        "category_id": snippet.get("categoryId"),
+                    },
+                )
+                results.append(output)
+
+            logger.info(
+                f"Channel {channel_id}: fetched {len(video_ids)} video(s)"
+            )
+
+        return results

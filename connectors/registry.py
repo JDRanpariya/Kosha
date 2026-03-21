@@ -1,7 +1,7 @@
+# connectors/registry.py
+
 from connectors.papers.arxiv import ArxivConnector
 from connectors.newsletters.rss import RssNewsletterConnector
-from connectors.podcasts.spotify import SpotifyConnector
-from connectors.youtube import YouTubeConnector
 
 CONNECTOR_REGISTRY = {
     "papers": {
@@ -14,23 +14,34 @@ CONNECTOR_REGISTRY = {
     "newsletters": {
         "rss": {
             "class": RssNewsletterConnector,
-            "display_name": "RSS-based Newsletter",
+            "display_name": "RSS Newsletter",
             "required_fields": ["feed_url"],
         },
     },
-    "podcasts": {
+}
+
+# Optional connectors — only register if dependencies are installed
+
+try:
+    from connectors.podcasts.spotify import SpotifyPodcastConnector
+    CONNECTOR_REGISTRY["podcasts"] = {
         "spotify": {
-            "class": SpotifyConnector,
+            "class": SpotifyPodcastConnector,
             "display_name": "Spotify Podcasts",
-            "required_fields": ["feed_url"],
+            "required_fields": ["show_id", "client_id", "client_secret"],
         },
-    },
-    "videos": {
+    }
+except ImportError:
+    pass
+
+try:
+    from connectors.youtube.youtube import YouTubeConnector
+    CONNECTOR_REGISTRY["videos"] = {
         "youtube": {
             "class": YouTubeConnector,
             "display_name": "YouTube",
-            "required_fields": ["api_key", "channels"],
-        }
+            "required_fields": ["api_key", "channel_ids"],
+        },
     }
-}
-
+except ImportError:
+    pass
