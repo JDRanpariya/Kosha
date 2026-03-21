@@ -34,19 +34,16 @@ def process_source(db: Session, source: Source, category: str):
     """
     logger.info(f"Starting ingestion for source {source.id} ({source.type})")
 
-    # 1. Dynamically get the connector class from your registry
     ConnectorClass = get_connector_class(category, source.type)
     if not ConnectorClass:
         return 0
 
-    # 2. Instantiate with source-specific config
     try:
         connector = ConnectorClass(source.config_json)
     except Exception as e:
         logger.error(f"Failed to initialize connector for source {source.id}: {e}")
         return 0
 
-    # 3. Fetch items using the connector's standardized output
     try:
         fetched_items: list[ConnectorOutput] = connector.fetch()
     except Exception as e:
@@ -62,7 +59,7 @@ def process_source(db: Session, source: Source, category: str):
             continue
 
         try:
-            with db.begin_nested():  # savepoint — only rolls back this item on failure
+            with db.begin_nested():
                 db_item = Item(
                     source_id=source.id,
                     external_id=str(item.url),
@@ -74,24 +71,30 @@ def process_source(db: Session, source: Source, category: str):
                 )
                 db.add(db_item)
                 db.flush()
-                db.add(ItemContent(
+
+                # ✅ Assign to variable so we can set embedding on it
+                db_item_content = ItemContent(
                     item_id=db_item.id,
                     raw_content=item.content,
                     parsed_content=item.content,
                     metadata_json=item.metadata,
-                ))
+                )
+                db.add(db_item_content)
+
                 if EMBEDDINGS_ENABLED and item.content:
-                    embedding = _model.encode(item.content[:512]).tolist()  # truncate for speed
-                    db_content.embedding = embedding
+                    embedding = _model.encode(item.content[:512]).tolist()
+                    db_item_content.embedding = embedding  # ✅ correct reference
+
             new_items_count += 1
+
         except IntegrityError:
             logger.warning(f"Race condition duplicate for: {item.title}")
         except Exception as e:
-            logger.error(f"Failed to save '{item.title}': {e}")
-    
+            logger.error(f"Failed to save '{item.title}': {e}", exc_info=True)  # ✅ exc_info shows full traceback
+
     source.last_fetched_at = func.now()
-    db.commit()  # commits all successful savepoints
-    
+    db.commit()
+
     logger.info(f"Ingestion complete. Added {new_items_count} new items for source {source.id}.")
     return new_items_count
 
