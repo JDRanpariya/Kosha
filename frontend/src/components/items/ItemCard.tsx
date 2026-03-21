@@ -1,85 +1,143 @@
-import { Bookmark, ExternalLink, X } from 'lucide-react'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { formatRelativeTime, truncate } from '@/lib/utils'
+import { Bookmark, SkipForward, ExternalLink } from 'lucide-react'
+import { formatRelativeTime, truncate, cn } from '@/lib/utils'
 import { useFeedback } from '@/hooks/useItems'
 import type { Item } from '@/types'
 
-interface ItemCardProps {
-    item: Item
-    onSelect?: (id: number) => void
-    isSaved?: boolean
+// ── Source type display metadata ──────────────────────────────────────────
+// Color encodes the origin category, not quality or relevance.
+// No similarity / resonance scores shown in Phase 1.
+
+const SOURCE_META: Record<string, { label: string; cls: string }> = {
+  rss:                   { label: 'RSS',        cls: 'text-amber-700 dark:text-amber-400'  },
+  substack:              { label: 'Substack',   cls: 'text-orange-700 dark:text-orange-400'},
+  email_imap:            { label: 'Newsletter', cls: 'text-violet-700 dark:text-violet-400'},
+  arxiv:                 { label: 'Paper',      cls: 'text-blue-700 dark:text-blue-400'    },
+  hackernews:            { label: 'HN',         cls: 'text-orange-600 dark:text-orange-400'},
+  reddit:                { label: 'Reddit',     cls: 'text-red-600 dark:text-red-400'      },
+  github:                { label: 'GitHub',     cls: 'text-ink-mid'                        },
+  spotify:               { label: 'Podcast',    cls: 'text-green-700 dark:text-green-400'  },
+  youtube:               { label: 'Video',      cls: 'text-red-600 dark:text-red-400'      },
+  youtube_subscriptions: { label: 'YouTube',    cls: 'text-red-600 dark:text-red-400'      },
 }
 
-export function ItemCard({ item, onSelect, isSaved = false }: ItemCardProps) {
-    const feedback = useFeedback()
+// Source types that should render a duration if present in metadata
+const DURATION_TYPES = new Set(['spotify', 'youtube', 'youtube_subscriptions'])
 
-    const handleSave = (e: React.MouseEvent) => {
-        e.stopPropagation()
-        feedback.mutate({ item_id: item.id, type: 'saved' })
-    }
+interface ItemCardProps {
+  item: Item
+  isActive?: boolean
+  isSaved?: boolean
+  onSelect?: (id: number) => void
+  index?: number
+}
 
-    const handleDismiss = (e: React.MouseEvent) => {
-        e.stopPropagation()
-        feedback.mutate({ item_id: item.id, type: 'dismissed' })
-    }
+export function ItemCard({
+  item,
+  isActive = false,
+  isSaved = false,
+  onSelect,
+  index = 0,
+}: ItemCardProps) {
+  const feedback = useFeedback()
+  const meta = item.source_type ? SOURCE_META[item.source_type] : undefined
+  const stagger = Math.min(index, 7)
 
-    return (
-        <Card
-            className="cursor-pointer transition-shadow hover:shadow-md"
-            onClick={() => onSelect?.(item.id)}
+  const handleSave = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    feedback.mutate({ item_id: item.id, type: isSaved ? 'viewed' : 'saved' })
+  }
+
+  const handleSkip = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    feedback.mutate({ item_id: item.id, type: 'dismissed' })
+  }
+
+  return (
+    <article
+      onClick={() => onSelect?.(item.id)}
+      className={cn(
+        'card-kosha group cursor-pointer p-4 fade-up',
+        `fade-up-${stagger + 1}`,
+        isActive && 'border-sage bg-sage-light/30',
+      )}
+    >
+      {/* Top row */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          {meta && (
+            <span className={cn('source-badge', meta.cls)}>
+              {meta.label}
+            </span>
+          )}
+        </div>
+        <time className="text-[11px] text-ink-faint tabular-nums">
+          {formatRelativeTime(item.published_at)}
+        </time>
+      </div>
+
+      {/* Title */}
+      <h2 className={cn(
+        'font-serif text-[15px] font-normal leading-snug mb-1.5 line-clamp-2',
+        'transition-colors duration-150',
+        isActive ? 'text-sage-dark' : 'text-ink group-hover:text-sage-dark',
+      )}>
+        {item.title}
+      </h2>
+
+      {/* Author + duration */}
+      {(item.author || (item.source_type && DURATION_TYPES.has(item.source_type))) && (
+        <p className="text-[11px] text-ink-faint mb-2">
+          {item.author}
+        </p>
+      )}
+
+      {/* Preview — only when no reading panel is open to keep list scannable */}
+      {!isActive && item.preview && (
+        <p className="text-[12px] text-ink-mid leading-relaxed line-clamp-2 mb-3">
+          {truncate(item.preview, 200)}
+        </p>
+      )}
+
+      {/* Actions — visible on hover or when active */}
+      <div className={cn(
+        'flex items-center gap-1 transition-opacity duration-150',
+        isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+      )}>
+        <button
+          onClick={handleSave}
+          disabled={feedback.isPending}
+          className={cn(
+            'flex items-center gap-1.5 px-2 py-1 rounded text-[11px] transition-colors',
+            isSaved
+              ? 'bg-sage-light text-sage-dark font-medium'
+              : 'text-ink-faint hover:text-ink hover:bg-parchment-deep',
+          )}
         >
-            <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold leading-tight line-clamp-2">{item.title}</h3>
-                        <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                            {item.author && <span>{item.author}</span>}
-                            {item.author && item.published_at && <span>•</span>}
-                            <span>{formatRelativeTime(item.published_at)}</span>
-                        </div>
-                    </div>
-                    {item.similarity && (
-                        <Badge variant="secondary" className="shrink-0">
-                            {Math.round(item.similarity * 100)}%
-                        </Badge>
-                    )}
-                </div>
-            </CardHeader>
-            <CardContent>
-                {item.preview && (
-                    <p className="text-sm text-muted-foreground line-clamp-3">
-                        {truncate(item.preview, 200)}
-                    </p>
-                )}
-                <div className="flex items-center gap-2 mt-4">
-                    <Button
-                        variant={isSaved ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={handleSave}
-                        disabled={feedback.isPending}
-                    >
-                        <Bookmark className={`h-4 w-4 mr-1 ${isSaved ? 'fill-current' : ''}`} />
-                        {isSaved ? 'Saved' : 'Save'}
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={handleDismiss} disabled={feedback.isPending}>
-                        <X className="h-4 w-4 mr-1" />
-                        Dismiss
-                    </Button>
-                    <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="ml-auto"
-                    >
-                        <Button variant="ghost" size="sm">
-                            <ExternalLink className="h-4 w-4" />
-                        </Button>
-                    </a>
-                </div>
-            </CardContent>
-        </Card>
-    )
+          <Bookmark className={cn('h-3 w-3', isSaved && 'fill-current')} />
+          {isSaved ? 'In reading list' : 'Save to list'}
+        </button>
+
+        {!isSaved && (
+          <button
+            onClick={handleSkip}
+            disabled={feedback.isPending}
+            className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] text-ink-faint hover:text-ink hover:bg-parchment-deep transition-colors"
+          >
+            <SkipForward className="h-3 w-3" />
+            Skip
+          </button>
+        )}
+
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={e => e.stopPropagation()}
+          className="ml-auto p-1 rounded text-ink-faint hover:text-ink transition-colors"
+        >
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      </div>
+    </article>
+  )
 }

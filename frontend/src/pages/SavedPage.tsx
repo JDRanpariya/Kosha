@@ -4,28 +4,36 @@ import { ItemList } from '@/components/items/ItemList'
 import { ItemDetail } from '@/components/items/ItemDetail'
 
 export function SavedPage() {
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const { data: saved, isLoading } = useSavedItems()
+    const [selectedId, setSelectedId] = useState<number | null>(null)
+    const { data: saved, isLoading } = useSavedItems()
 
-  return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Saved Items</h1>
-        <p className="text-muted-foreground">
-          {saved ? `${saved.count} saved items` : 'Loading...'}
-        </p>
-      </div>
+    return (
+        <>
+            <div className="mb-8 fade-up">
+                <p className="text-xs uppercase tracking-[0.15em] text-ink-faint font-medium mb-1">
+                    Your collection
+                </p>
+                <h1 className="font-serif text-3xl font-normal text-ink">
+                    Saved
+                </h1>
+            </div>
 
-      <ItemList
-        items={saved?.items ?? []}
-        savedIds={saved?.item_ids ?? []}
-        isLoading={isLoading}
-        onSelectItem={setSelectedId}
-      />
+            {!isLoading && saved && saved.count > 0 && (
+                <div className="section-divider" style={{ opacity: 1 }}>
+                    {saved.count} items saved
+                </div>
+            )}
 
-      {selectedId && (
-        <ItemDetail itemId={selectedId} onClose={() => setSelectedId(null)} />
-      )}
-    </div>
-  )
+            <ItemList
+                items={saved?.items ?? []}
+                savedIds={saved?.item_ids ?? []}
+                isLoading={isLoading}
+                onSelectItem={setSelectedId}
+            />
+
+            {selectedId && (
+                <ItemDetail itemId={selectedId} onClose={() => setSelectedId(null)} />
+            )}
+        </>
+    )
 }

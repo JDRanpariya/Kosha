@@ -1,26 +1,44 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 interface UIState {
   sidebarOpen: boolean
-  selectedItemId: number | null
   theme: 'light' | 'dark'
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
-  setSelectedItem: (id: number | null) => void
   toggleTheme: () => void
 }
 
-export const useUIStore = create<UIState>((set) => ({
-  sidebarOpen: true,
-  selectedItemId: null,
-  theme: 'light',
-  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
-  setSelectedItem: (id) => set({ selectedItemId: id }),
-  toggleTheme: () =>
-    set((state) => {
-      const newTheme = state.theme === 'light' ? 'dark' : 'light'
-      document.documentElement.classList.toggle('dark', newTheme === 'dark')
-      return { theme: newTheme }
+export const useUIStore = create<UIState>()(
+  persist(
+    (set) => ({
+      sidebarOpen: true,
+      theme: 'light',
+
+      toggleSidebar: () =>
+        set(s => ({ sidebarOpen: !s.sidebarOpen })),
+
+      setSidebarOpen: (open) =>
+        set({ sidebarOpen: open }),
+
+      toggleTheme: () =>
+        set(s => {
+          const next = s.theme === 'light' ? 'dark' : 'light'
+          // Apply to document immediately
+          document.documentElement.classList.toggle('dark', next === 'dark')
+          return { theme: next }
+        }),
     }),
-}))
+    {
+      name: 'kosha-ui',
+      // Only persist sidebar state and theme — not transient UI state
+      partialize: s => ({ sidebarOpen: s.sidebarOpen, theme: s.theme }),
+      onRehydrateStorage: () => state => {
+        // Sync document class on page load
+        if (state?.theme === 'dark') {
+          document.documentElement.classList.add('dark')
+        }
+      },
+    }
+  )
+)

@@ -6,47 +6,48 @@ import type {
   SourceCreate,
   FeedbackType,
   SavedResponse,
+  TeachSignal,
 } from '@/types'
 
-const API_BASE = '/api'
+const BASE = '/api'
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${url}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+  const res = await fetch(`${BASE}${url}`, {
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
     ...options,
   })
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}))
-    throw new Error(error.detail || `HTTP ${response.status}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { detail?: string }).detail ?? `HTTP ${res.status}`)
   }
-
-  return response.json()
+  return res.json()
 }
 
-// Digest endpoints
+// ── Digest ────────────────────────────────────────────────────────────────
+
 export const digestApi = {
   getDaily: (limit = 20, offset = 0) =>
     fetchJson<DigestResponse>(`/digest/daily?limit=${limit}&offset=${offset}`),
 
   getItem: (id: number) =>
-    fetchJson<{ item: ItemDetail }>(`/digest/item/${id}`).then((r) => r.item),
+    fetchJson<{ item: ItemDetail }>(`/digest/item/${id}`).then(r => r.item),
 }
 
-// Search endpoints
+// ── Search ────────────────────────────────────────────────────────────────
+
 export const searchApi = {
   search: (query: string, limit = 20) =>
-    fetchJson<SearchResponse>(`/search/?q=${encodeURIComponent(query)}&limit=${limit}`),
+    fetchJson<SearchResponse>(
+      `/search/?q=${encodeURIComponent(query)}&limit=${limit}`
+    ),
 }
 
-// Sources endpoints
+// ── Sources ───────────────────────────────────────────────────────────────
+
 export const sourcesApi = {
   list: () =>
     fetchJson<{ sources: Source[]; count: number }>('/sources/').then(
-      (r) => r.sources
+      r => r.sources
     ),
 
   create: (source: SourceCreate) =>
@@ -62,12 +63,11 @@ export const sourcesApi = {
     }),
 
   delete: (id: number) =>
-    fetchJson<{ status: string }>(`/sources/${id}`, {
-      method: 'DELETE',
-    }),
+    fetchJson<{ status: string }>(`/sources/${id}`, { method: 'DELETE' }),
 }
 
-// Feedback endpoints
+// ── Feedback ──────────────────────────────────────────────────────────────
+
 export const feedbackApi = {
   submit: (feedback: FeedbackType) =>
     fetchJson<{ status: string; type: string; item_id: number }>('/feedback/', {
@@ -75,19 +75,26 @@ export const feedbackApi = {
       body: JSON.stringify(feedback),
     }),
 
-  getSaved: () =>
-    fetchJson<SavedResponse>('/feedback/saved'),
+  getSaved: () => fetchJson<SavedResponse>('/feedback/saved'),
+
+  // Phase 2 seed: records why the user found an item interesting.
+  // Backend stores this for preference model training.
+  submitTeach: (signal: TeachSignal) =>
+    fetchJson<{ status: string }>('/feedback/teach', {
+      method: 'POST',
+      body: JSON.stringify(signal),
+    }),
 }
 
-// Ingest endpoints
+// ── Ingest ────────────────────────────────────────────────────────────────
+
 export const ingestApi = {
   triggerSource: (sourceId: number) =>
-    fetchJson<{ status: string; source_id: number }>(`/ingest/trigger/${sourceId}`, {
-      method: 'POST',
-    }),
+    fetchJson<{ status: string; source_id: number }>(
+      `/ingest/trigger/${sourceId}`,
+      { method: 'POST' }
+    ),
 
   triggerAll: () =>
-    fetchJson<{ status: string }>('/ingest/trigger-all', {
-      method: 'POST',
-    }),
+    fetchJson<{ status: string }>('/ingest/trigger-all', { method: 'POST' }),
 }

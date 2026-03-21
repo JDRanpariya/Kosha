@@ -1,517 +1,315 @@
-// frontend/src/pages/SourcesPage.tsx
-
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Trash2, RefreshCw, Check, X, Youtube } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import {
-  useSources,
-  useCreateSource,
-  useDeleteSource,
-  useTriggerIngestion,
-  useUpdateSource,
+    useSources,
+    useCreateSource,
+    useDeleteSource,
+    useTriggerIngestion,
+    useUpdateSource,
 } from '@/hooks/useSources'
-import { formatDate } from '@/lib/utils'
+import { formatDate, cn } from '@/lib/utils'
 import type { Source } from '@/types'
 
-// ── Static metadata ───────────────────────────────────────────────────────────
-
-/**
- * configRequired: false  → the config field is shown but NOT required
- * configRequired: null   → no config field at all (oauth / no-config types)
-
- */
+/* ─── Source type metadata ─────────────────────────────────────────────── */
 const SOURCE_TYPES = [
-  // Newsletters
-  {
-    value: 'rss',
-    label: 'RSS Feed',
-    category: 'newsletters',
-    placeholder: 'Feed URL (https://example.com/feed.rss)',
-    configRequired: true,
-  },
-  {
-    value: 'substack',
-    label: 'Substack',
-    category: 'newsletters',
-    placeholder: 'Publication URL (https://name.substack.com)',
-    configRequired: true,
-  },
-  {
-    value: 'email_imap',
-    label: 'Newsletter via Email (IMAP)',
-    category: 'newsletters',
-    placeholder: 'IMAP host (imap.gmail.com)',
-    configRequired: true,
-  },
-  // Papers
-  {
-    value: 'arxiv',
-    label: 'arXiv',
-    category: 'papers',
-    placeholder: 'Categories (cs.AI,stat.ML)',
-    configRequired: true,
-  },
-  // Social
-  {
-    value: 'hackernews',
-    label: 'Hacker News',
-    category: 'social',
-    placeholder: 'Tags — leave blank for front_page',
-    configRequired: false,  // optional
-  },
-  {
-    value: 'reddit',
-    label: 'Reddit',
-    category: 'social',
-    placeholder: 'Subreddits (MachineLearning,LocalLLaMA)',
-    configRequired: true,
-  },
-  {
-    value: 'github',
-    label: 'GitHub Releases & Trending',
-    category: 'social',
-    placeholder: 'Repos (openai/whisper,ollama/ollama) — leave blank for trending only',
-    configRequired: false,  // fully optional
-  },
-  // Podcasts
-  {
-    value: 'spotify',
-    label: 'Spotify Podcast',
-    category: 'podcasts',
-    placeholder: 'Show ID',
-    configRequired: true,
-  },
-  // Videos
-  {
-    value: 'youtube',
-    label: 'YouTube Channel',
-    category: 'videos',
-    placeholder: 'Channel IDs (UCxxx,UCyyy)',
-    configRequired: true,
-  },
-  {
-    value: 'youtube_subscriptions',
-    label: 'YouTube Subscriptions (all your subs)',
-    category: 'videos',
-    placeholder: '',
-    configRequired: null,   // uses OAuth — no manual config field
-  },
+    { value: 'rss', label: 'RSS Feed', category: 'newsletters', placeholder: 'Feed URL', configRequired: true },
+    { value: 'substack', label: 'Substack', category: 'newsletters', placeholder: 'Publication URL', configRequired: true },
+    { value: 'email_imap', label: 'Email newsletter', category: 'newsletters', placeholder: 'IMAP host (imap.gmail.com)', configRequired: true },
+    { value: 'arxiv', label: 'arXiv', category: 'papers', placeholder: 'Categories (cs.AI,stat.ML)', configRequired: true },
+    { value: 'hackernews', label: 'Hacker News', category: 'social', placeholder: 'Tag (front_page, ask_hn…)', configRequired: false },
+    { value: 'reddit', label: 'Reddit', category: 'social', placeholder: 'Subreddits (MachineLearning,LocalLLaMA)', configRequired: true },
+    { value: 'github', label: 'GitHub', category: 'dev', placeholder: 'Repos (owner/repo) — blank for trending', configRequired: false },
+    { value: 'spotify', label: 'Spotify podcast', category: 'podcasts', placeholder: 'Show ID', configRequired: true },
+    { value: 'youtube', label: 'YouTube channel', category: 'videos', placeholder: 'Channel IDs (UCxxx,UCyyy)', configRequired: true },
+    { value: 'youtube_subscriptions', label: 'YouTube subscriptions', category: 'videos', placeholder: '', configRequired: null },
 ] as const
 
-type SourceTypeValue = (typeof SOURCE_TYPES)[number]['value']
+const CATEGORY_ORDER = ['newsletters', 'papers', 'social', 'dev', 'podcasts', 'videos']
 
-const CATEGORY_COLOURS: Record<string, string> = {
-  newsletters: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  papers:      'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  social:      'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  podcasts:    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  videos:      'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  other:       'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+const CATEGORY_DOTS: Record<string, string> = {
+    newsletters: 'bg-amber-500',
+    papers: 'bg-blue-500',
+    social: 'bg-orange-500',
+    dev: 'bg-gray-500',
+    podcasts: 'bg-green-500',
+    videos: 'bg-red-500',
 }
 
-const CATEGORY_ORDER = ['newsletters', 'papers', 'social', 'podcasts', 'videos', 'other']
-
-// ── Config builder ────────────────────────────────────────────────────────────
-
-function buildConfigJson(type: string, value: string): Record<string, unknown> {
-  const v = value.trim()
-  switch (type) {
-    case 'rss':
-      return { feed_url: v }
-    case 'substack':
-      return { publication_url: v }
-    case 'arxiv':
-      return { categories: v.split(',').map((s) => s.trim()).filter(Boolean) }
-    case 'hackernews':
-      return { tags: v || 'front_page' }
-    case 'reddit':
-      return { subreddits: v.split(',').map((s) => s.trim()).filter(Boolean) }
-    case 'github':
-      return {
-        repos: v ? v.split(',').map((s) => s.trim()).filter(Boolean) : [],
-        fetch_trending: true,
-      }
-    case 'spotify':
-      return { show_id: v }
-    case 'youtube':
-      return { channels: v.split(',').map((s) => s.trim()).filter(Boolean) }
-    default:
-      return {}
-  }
+function buildConfig(type: string, value: string): Record<string, unknown> {
+    const v = value.trim()
+    switch (type) {
+        case 'rss': return { feed_url: v }
+        case 'substack': return { publication_url: v }
+        case 'arxiv': return { categories: v.split(',').map(s => s.trim()).filter(Boolean) }
+        case 'hackernews': return { tags: v || 'front_page' }
+        case 'reddit': return { subreddits: v.split(',').map(s => s.trim()).filter(Boolean) }
+        case 'github': return { repos: v ? v.split(',').map(s => s.trim()).filter(Boolean) : [], fetch_trending: true }
+        case 'spotify': return { show_id: v }
+        case 'youtube': return { channels: v.split(',').map(s => s.trim()).filter(Boolean) }
+        default: return {}
+    }
 }
 
-// ── Helper ────────────────────────────────────────────────────────────────────
+/* ─── Add form ─────────────────────────────────────────────────────────── */
+function AddForm({ onClose }: { onClose: () => void }) {
+    const create = useCreateSource()
+    const [form, setForm] = useState({ name: '', type: 'rss', config: '' })
+    const meta = SOURCE_TYPES.find(t => t.value === form.type)
+    const isOAuth = meta?.configRequired === null
 
-function groupByCategory(sources: Source[]): Record<string, Source[]> {
-  return sources.reduce<Record<string, Source[]>>((acc, src) => {
-    const cat =
-      SOURCE_TYPES.find((t) => t.value === src.type)?.category ?? 'other'
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push(src)
-    return acc
-  }, {})
-}
-
-// ── Add-source form ───────────────────────────────────────────────────────────
-
-function AddSourceForm({ onClose }: { onClose: () => void }) {
-  const createSource = useCreateSource()
-  const [formData, setFormData] = useState({ name: '', type: 'rss', config: '' })
-
-  const meta = SOURCE_TYPES.find((t) => t.value === formData.type)
-
-  // Group for <optgroup>
-  const grouped = [...SOURCE_TYPES].reduce<Record<string, typeof SOURCE_TYPES[number][]>>(
-    (acc, t) => {
-      if (!acc[t.category]) acc[t.category] = []
-      acc[t.category].push(t)
-      return acc
-    },
-    {}
-  )
-
-  const isOAuth        = meta?.configRequired === null
-  const configRequired = meta?.configRequired === true
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    // OAuth types are connected via the browser redirect, not this form
-    if (isOAuth) {
-      window.location.href = '/api/youtube/oauth/start'
-      return
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
+        if (isOAuth) { window.location.href = '/api/youtube/oauth/start'; return }
+        create.mutate(
+            { name: form.name, type: form.type, url: form.type === 'rss' ? form.config : undefined, config_json: buildConfig(form.type, form.config) },
+            { onSuccess: onClose }
+        )
     }
 
-    const config_json = buildConfigJson(formData.type, formData.config)
+    const grouped = [...SOURCE_TYPES].reduce<Record<string, typeof SOURCE_TYPES[number][]>>((acc, t) => {
+        if (!acc[t.category]) acc[t.category] = []
+        acc[t.category].push(t)
+        return acc
+    }, {})
 
-    createSource.mutate(
-      {
-        name: formData.name,
-        type: formData.type,
-        url: formData.type === 'rss' ? formData.config : undefined,
-        config_json,
-      },
-      { onSuccess: onClose }
-    )
-  }
+    return (
+        <div className="card-kosha p-5 mb-6 fade-up">
+            <h2 className="font-serif text-lg mb-4">Add source</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
 
-  return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle>Add New Source</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Name</label>
-            <Input
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="My Source"
-              required
-            />
-          </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="block text-xs text-ink-faint mb-1.5 uppercase tracking-wider">Name</label>
+                        <input
+                            value={form.name}
+                            onChange={e => setForm({ ...form, name: e.target.value })}
+                            placeholder="My source"
+                            required
+                            className="w-full h-9 px-3 rounded-md border border-border bg-parchment-mid text-sm text-ink placeholder:text-ink-faint outline-none focus:border-ink-faint transition-colors"
+                        />
+                    </div>
 
-          {/* Type */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Type</label>
-            <select
-              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={formData.type}
-              onChange={(e) =>
-                setFormData({ ...formData, type: e.target.value, config: '' })
-              }
-            >
-              {CATEGORY_ORDER.filter((cat) => grouped[cat]).map((cat) => (
-                <optgroup
-                  key={cat}
-                  label={cat.charAt(0).toUpperCase() + cat.slice(1)}
-                >
-                  {grouped[cat].map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
+                    <div>
+                        <label className="block text-xs text-ink-faint mb-1.5 uppercase tracking-wider">Type</label>
+                        <select
+                            value={form.type}
+                            onChange={e => setForm({ ...form, type: e.target.value, config: '' })}
+                            className="w-full h-9 px-3 rounded-md border border-border bg-parchment-mid text-sm text-ink outline-none focus:border-ink-faint transition-colors"
+                        >
+                            {CATEGORY_ORDER.filter(c => grouped[c]).map(cat => (
+                                <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
+                                    {grouped[cat].map(t => (
+                                        <option key={t.value} value={t.value}>{t.label}</option>
+                                    ))}
+                                </optgroup>
+                            ))}
+                        </select>
+                    </div>
+                </div>
 
-          {/* OAuth notice */}
-          {isOAuth && (
-            <div className="rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 p-3 text-sm text-blue-800 dark:text-blue-200">
-              <p className="font-medium mb-1">OAuth required</p>
-              <p>
-                Clicking "Connect with Google" will open Google's permission
-                screen. Once approved, all your subscriptions will be imported
-                automatically.
-              </p>
-            </div>
-          )}
-
-          {/* Config field — shown when NOT oauth */}
-          {!isOAuth && meta && (
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Configuration
-                {!configRequired && (
-                  <span className="ml-1 text-muted-foreground font-normal">
-                    (optional)
-                  </span>
+                {isOAuth ? (
+                    <div className="rounded-md border border-sage-light bg-sage-light/30 p-3 text-sm text-ink-mid">
+                        Clicking connect will open Google's permission screen and import all your subscriptions automatically.
+                    </div>
+                ) : meta && (
+                    <div>
+                        <label className="block text-xs text-ink-faint mb-1.5 uppercase tracking-wider">
+                            Configuration {meta.configRequired === false && <span className="normal-case">(optional)</span>}
+                        </label>
+                        <input
+                            value={form.config}
+                            onChange={e => setForm({ ...form, config: e.target.value })}
+                            placeholder={meta.placeholder}
+                            required={meta.configRequired === true}
+                            className="w-full h-9 px-3 rounded-md border border-border bg-parchment-mid text-sm text-ink placeholder:text-ink-faint outline-none focus:border-ink-faint transition-colors"
+                        />
+                    </div>
                 )}
-              </label>
-              <Input
-                value={formData.config}
-                onChange={(e) =>
-                  setFormData({ ...formData, config: e.target.value })
-                }
-                placeholder={meta.placeholder}
-                required={configRequired}
-              />
 
-              {formData.type === 'hackernews' && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Leave blank to use{' '}
-                  <code className="bg-muted px-1 rounded">front_page</code>.
-                  Other options: <code className="bg-muted px-1 rounded">ask_hn</code>,{' '}
-                  <code className="bg-muted px-1 rounded">show_hn</code>,{' '}
-                  <code className="bg-muted px-1 rounded">job</code>
-                </p>
-              )}
-
-              {formData.type === 'github' && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Leave blank to fetch trending repos only. The API token is
-                  read from secrets (optional but raises rate limits).
-                </p>
-              )}
-
-              {formData.type === 'email_imap' && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Enter the IMAP host. Username and password are read from
-                  secrets files.
-                </p>
-              )}
-
-              {formData.type === 'arxiv' && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Comma-separated codes, e.g.{' '}
-                  <code className="bg-muted px-1 rounded">cs.AI,stat.ML,cs.LG</code>
-                </p>
-              )}
-            </div>
-          )}
-
-          {createSource.isError && (
-            <p className="text-sm text-destructive">
-              {(createSource.error as Error).message ?? 'Failed to create source.'}
-            </p>
-          )}
-
-          <div className="flex gap-2">
-            {isOAuth ? (
-              <Button type="submit" className="gap-2">
-                <Youtube className="h-4 w-4" />
-                Connect with Google
-              </Button>
-            ) : (
-              <Button type="submit" disabled={createSource.isPending}>
-                {createSource.isPending ? 'Adding…' : 'Add Source'}
-              </Button>
-            )}
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-  )
+                <div className="flex gap-2 pt-1">
+                    {isOAuth ? (
+                        <button type="submit" className="flex items-center gap-2 px-4 py-2 rounded-md bg-red-600 text-white text-sm hover:bg-red-700 transition-colors">
+                            <Youtube className="h-3.5 w-3.5" />
+                            Connect with Google
+                        </button>
+                    ) : (
+                        <button
+                            type="submit"
+                            disabled={create.isPending}
+                            className="px-4 py-2 rounded-md bg-ink text-background text-sm hover:bg-ink-mid transition-colors disabled:opacity-40"
+                        >
+                            {create.isPending ? 'Adding…' : 'Add source'}
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-4 py-2 rounded-md border border-border text-sm text-ink-mid hover:text-ink hover:bg-parchment-deep transition-colors"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    )
 }
 
-// ── Source row ────────────────────────────────────────────────────────────────
+/* ─── Source row ───────────────────────────────────────────────────────── */
+function SourceRow({ source }: { source: Source }) {
+    const update = useUpdateSource()
+    const remove = useDeleteSource()
+    const trigger = useTriggerIngestion()
+    const cat = SOURCE_TYPES.find(t => t.value === source.type)?.category ?? 'other'
+    const dot = CATEGORY_DOTS[cat] ?? 'bg-gray-400'
 
-function SourceRow({ source, category }: { source: Source; category: string }) {
-  const updateSource     = useUpdateSource()
-  const deleteSource     = useDeleteSource()
-  const triggerIngestion = useTriggerIngestion()
+    return (
+        <div className="card-kosha p-4 flex items-center gap-4 group">
+            {/* Dot indicator */}
+            <div className={cn('w-2 h-2 rounded-full shrink-0 mt-0.5', dot, !source.enabled && 'opacity-30')} />
 
-  const colourClass = CATEGORY_COLOURS[category] ?? CATEGORY_COLOURS.other
-
-  // For oauth sources don't show raw tokens in the UI
-  const configPreview =
-    source.type === 'youtube_subscriptions'
-      ? 'Connected via OAuth'
-      : (source.url ?? JSON.stringify(source.config_json))
-
-  return (
-    <Card>
-      <CardContent className="flex items-center justify-between p-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-semibold">{source.name}</h3>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colourClass}`}>
-              {source.type}
-            </span>
-            <Badge variant={source.enabled ? 'default' : 'secondary'}>
-              {source.enabled ? 'Active' : 'Disabled'}
-            </Badge>
-          </div>
-
-          <p className="text-sm text-muted-foreground mt-1 truncate max-w-md">
-            {configPreview}
-          </p>
-
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Last fetched:{' '}
-            {source.last_fetched_at ? formatDate(source.last_fetched_at) : 'Never'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-1 ml-4 shrink-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            title={source.enabled ? 'Disable source' : 'Enable source'}
-            onClick={() =>
-              updateSource.mutate({ id: source.id, data: { enabled: !source.enabled } })
-            }
-            disabled={updateSource.isPending}
-          >
-            {source.enabled ? (
-              <Check className="h-4 w-4 text-green-600" />
-            ) : (
-              <X className="h-4 w-4 text-muted-foreground" />
-            )}
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Fetch now"
-            onClick={() => triggerIngestion.mutate(source.id)}
-            disabled={triggerIngestion.isPending}
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${triggerIngestion.isPending ? 'animate-spin' : ''}`}
-            />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Delete source"
-            onClick={() => {
-              if (confirm(`Delete "${source.name}"?`)) {
-                deleteSource.mutate(source.id)
-              }
-            }}
-            disabled={deleteSource.isPending}
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
-
-export function SourcesPage() {
-  const [searchParams] = useSearchParams()
-  const { data: sources = [], isLoading, isError } = useSources()
-  const [showForm, setShowForm] = useState(false)
-  const [oauthSuccess, setOauthSuccess] = useState(false)
-
-  // Show success banner if redirected back from OAuth
-  useEffect(() => {
-    if (searchParams.get('youtube_connected') === '1') {
-      setOauthSuccess(true)
-      const t = setTimeout(() => setOauthSuccess(false), 6000)
-      return () => clearTimeout(t)
-    }
-  }, [searchParams])
-
-  const grouped = groupByCategory(sources)
-  const sortedCategories = [
-    ...CATEGORY_ORDER.filter((c) => grouped[c]),
-    ...Object.keys(grouped).filter((c) => !CATEGORY_ORDER.includes(c)),
-  ]
-
-  return (
-    <div>
-      {/* OAuth success banner */}
-      {oauthSuccess && (
-        <div className="mb-4 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-4 py-3 text-sm text-green-800 dark:text-green-200 flex items-center justify-between">
-          <span>✅ YouTube Subscriptions connected successfully!</span>
-          <button onClick={() => setOauthSuccess(false)}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Content Sources</h1>
-          <p className="text-muted-foreground">
-            Manage RSS feeds, newsletters, social feeds, podcasts, and channels
-          </p>
-        </div>
-        <Button onClick={() => setShowForm((v) => !v)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Source
-        </Button>
-      </div>
-
-      {/* Form */}
-      {showForm && <AddSourceForm onClose={() => setShowForm(false)} />}
-
-      {/* States */}
-      {isLoading && <p className="text-muted-foreground">Loading sources…</p>}
-      {isError && (
-        <p className="text-destructive">
-          Failed to load sources. Is the backend running?
-        </p>
-      )}
-
-      {/* List */}
-      {!isLoading && !isError && (
-        <div className="space-y-8">
-          {sortedCategories.map((category) => (
-            <div key={category}>
-              <h2 className="text-lg font-semibold capitalize mb-3">{category}</h2>
-              <div className="space-y-3">
-                {grouped[category].map((source) => (
-                  <SourceRow key={source.id} source={source} category={category} />
-                ))}
-              </div>
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-ink">{source.name}</span>
+                    {!source.enabled && (
+                        <span className="source-badge text-ink-faint">paused</span>
+                    )}
+                </div>
+                <p className="text-xs text-ink-faint mt-0.5 truncate">
+                    {source.type === 'youtube_subscriptions' ? 'OAuth — subscriptions' : (source.url ?? JSON.stringify(source.config_json))}
+                </p>
+                {source.last_fetched_at && (
+                    <p className="text-xs text-ink-faint/60 mt-0.5">
+                        Last synced {formatDate(source.last_fetched_at)}
+                    </p>
+                )}
             </div>
-          ))}
 
-          {sources.length === 0 && (
-            <div className="text-center py-16 text-muted-foreground">
-              <p className="text-lg">No sources configured yet.</p>
-              <p className="text-sm mt-1">
-                Click{' '}
+            {/* Actions — shown on hover */}
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  className="underline hover:text-foreground transition-colors"
-                  onClick={() => setShowForm(true)}
+                    title={source.enabled ? 'Pause' : 'Resume'}
+                    onClick={() => update.mutate({ id: source.id, data: { enabled: !source.enabled } })}
+                    className="p-1.5 rounded text-ink-faint hover:text-ink hover:bg-parchment-deep transition-colors"
                 >
-                  Add Source
-                </button>{' '}
-                to get started.
-              </p>
+                    {source.enabled ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                </button>
+
+                <button
+                    title="Fetch now"
+                    onClick={() => trigger.mutate(source.id)}
+                    disabled={trigger.isPending}
+                    className="p-1.5 rounded text-ink-faint hover:text-ink hover:bg-parchment-deep transition-colors"
+                >
+                    <RefreshCw className={cn('h-3.5 w-3.5', trigger.isPending && 'animate-spin')} />
+                </button>
+
+                <button
+                    title="Remove"
+                    onClick={() => { if (confirm(`Remove "${source.name}"?`)) remove.mutate(source.id) }}
+                    className="p-1.5 rounded text-ink-faint hover:text-red-500 hover:bg-parchment-deep transition-colors"
+                >
+                    <Trash2 className="h-3.5 w-3.5" />
+                </button>
             </div>
-          )}
         </div>
-      )}
-    </div>
-  )
+    )
+}
+
+/* ─── Page ─────────────────────────────────────────────────────────────── */
+export function SourcesPage() {
+    const [params] = useSearchParams()
+    const { data: sources = [], isLoading, isError } = useSources()
+    const [showForm, setShowForm] = useState(false)
+    const [oauthOk, setOauthOk] = useState(false)
+
+    useEffect(() => {
+        if (params.get('youtube_connected') === '1') {
+            setOauthOk(true)
+            setTimeout(() => setOauthOk(false), 6000)
+        }
+    }, [params])
+
+    // Group by category
+    const grouped = sources.reduce<Record<string, Source[]>>((acc, s) => {
+        const cat = SOURCE_TYPES.find(t => t.value === s.type)?.category ?? 'other'
+        if (!acc[cat]) acc[cat] = []
+        acc[cat].push(s)
+        return acc
+    }, {})
+
+    const sortedCats = [
+        ...CATEGORY_ORDER.filter(c => grouped[c]),
+        ...Object.keys(grouped).filter(c => !CATEGORY_ORDER.includes(c)),
+    ]
+
+    return (
+        <>
+            {/* Header */}
+            <div className="flex items-end justify-between mb-8 fade-up">
+                <div>
+                    <p className="text-xs uppercase tracking-[0.15em] text-ink-faint font-medium mb-1">Manage</p>
+                    <h1 className="font-serif text-3xl font-normal text-ink">Sources</h1>
+                </div>
+                <button
+                    onClick={() => setShowForm(v => !v)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-md bg-ink text-background text-sm hover:bg-ink-mid transition-colors"
+                >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add source
+                </button>
+            </div>
+
+            {/* OAuth success */}
+            {oauthOk && (
+                <div className="mb-4 rounded-md border border-sage-light bg-sage-light/40 px-4 py-3 text-sm text-sage-dark flex justify-between items-center fade-up">
+                    YouTube subscriptions connected.
+                    <button onClick={() => setOauthOk(false)}><X className="h-3.5 w-3.5" /></button>
+                </div>
+            )}
+
+            {showForm && <AddForm onClose={() => setShowForm(false)} />}
+
+            {isLoading && (
+                <div className="space-y-3">
+                    {[0, 1, 2].map(i => (
+                        <div key={i} className="card-kosha p-4 h-16 skeleton-warm" />
+                    ))}
+                </div>
+            )}
+
+            {isError && (
+                <p className="text-sm text-ink-faint py-8 text-center">
+                    Could not reach the backend. Is it running?
+                </p>
+            )}
+
+            {!isLoading && !isError && (
+                <div className="space-y-8">
+                    {sortedCats.map(cat => (
+                        <div key={cat}>
+                            <div className="section-divider" style={{ opacity: 1 }}>
+                                {cat}
+                            </div>
+                            <div className="space-y-2">
+                                {grouped[cat].map(s => <SourceRow key={s.id} source={s} />)}
+                            </div>
+                        </div>
+                    ))}
+
+                    {sources.length === 0 && (
+                        <div className="flex flex-col items-center py-20 gap-3 text-center">
+                            <svg width="32" height="32" viewBox="0 0 20 20" fill="none" className="text-ink-faint/30">
+                                <path d="M3 17C3 17 5 10 10 7C15 4 17 3 17 3C17 3 16 5 13 10C10 15 3 17 3 17Z" fill="currentColor" />
+                            </svg>
+                            <p className="text-sm text-ink-faint">No sources yet.</p>
+                            <button onClick={() => setShowForm(true)} className="text-sm text-sage hover:underline underline-offset-4">
+                                Add your first source →
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+        </>
+    )
 }

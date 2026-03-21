@@ -1,56 +1,283 @@
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Design intent ────────────────────────────────────────────────────────
+   Low arousal, high valence. Calm pleasure. The feeling of reading on a
+   Sunday morning — warm light, cream paper, unhurried time.
+
+   Lora (serif) for titles: literary, grounded, trustworthy.
+   DM Sans (sans) for UI: clean but soft, not clinical.
+
+   Color philosophy:
+   - Parchment ground, not white. White is arousing. Cream is restful.
+   - No pure black. Ink, not stark.
+   - Warm sage as the only accent. Neither stimulating red nor cold blue.
+   - Borders so faint they're felt rather than seen.
+──────────────────────────────────────────────────────────────────────────── */
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    /* Ground */
+    --parchment:        248 42% 97%;   /* #F8F6F2 — warm off-white */
+    --parchment-mid:    40 20% 93%;    /* #EDE9E2 — card surfaces */
+    --parchment-deep:   38 18% 88%;   /* #E3DDD4 — dividers, borders */
+
+    /* Ink */
+    --ink:              30 15% 18%;   /* #2E2820 — body text, not black */
+    --ink-mid:          30 10% 38%;   /* #635D55 — secondary text */
+    --ink-faint:        30 8%  58%;   /* #9A948C — muted, metadata */
+
+    /* Accent — sage green. One accent. Used sparingly. */
+    --sage:             140 18% 46%;  /* #60826A — active states */
+    --sage-light:       140 22% 88%;  /* #CCDDD1 — hover tints */
+    --sage-dark:        140 20% 30%;  /* #3D5942 — pressed */
+
+    /* System mappings (shadcn tokens remapped) */
+    --background:       var(--parchment);
+    --foreground:       var(--ink);
+    --card:             var(--parchment-mid);
+    --card-foreground:  var(--ink);
+    --primary:          var(--sage);
+    --primary-foreground: 140 30% 97%;
+    --secondary:        var(--parchment-mid);
+    --secondary-foreground: var(--ink-mid);
+    --muted:            var(--parchment-mid);
+    --muted-foreground: var(--ink-faint);
+    --accent:           var(--sage-light);
+    --accent-foreground: var(--sage-dark);
+    --destructive:      0 55% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border:           var(--parchment-deep);
+    --input:            var(--parchment-deep);
+    --ring:             var(--sage);
+    --radius:           0.375rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* Warm dark — charcoal, not black. Like a reading room at night. */
+    --parchment:        30 8%  11%;   /* #1C1A17 */
+    --parchment-mid:    30 7%  15%;   /* #26231F */
+    --parchment-deep:   30 6%  22%;   /* #37332D */
+
+    --ink:              38 25% 90%;   /* #EEE8DD */
+    --ink-mid:          38 15% 65%;   /* #ADA69C */
+    --ink-faint:        38 10% 45%;   /* #756F66 */
+
+    --sage:             140 20% 52%;  /* #6A9275 */
+    --sage-light:       140 15% 20%;  /* #283328 */
+    --sage-dark:        140 25% 72%;  /* #96BEA0 */
+
+    --background:       var(--parchment);
+    --foreground:       var(--ink);
+    --card:             var(--parchment-mid);
+    --card-foreground:  var(--ink);
+    --primary:          var(--sage);
+    --primary-foreground: 140 10% 10%;
+    --secondary:        var(--parchment-mid);
+    --secondary-foreground: var(--ink-mid);
+    --muted:            var(--parchment-mid);
+    --muted-foreground: var(--ink-faint);
+    --accent:           var(--sage-light);
+    --accent-foreground: var(--sage-dark);
+    --destructive:      0 55% 48%;
+    --destructive-foreground: 0 0% 98%;
+    --border:           var(--parchment-deep);
+    --input:            var(--parchment-deep);
+    --ring:             var(--sage);
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-weight: 300;
+    font-size: 16px;
+    line-height: 1.7;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    letter-spacing: 0.01em;
+  }
+
+  /* Headings use the serif */
+  h1, h2, h3, h4, .serif {
+    font-family: 'Lora', Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  /* Smooth all transitions at the system level */
+  * {
+    transition-property: color, background-color, border-color, opacity;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+  }
+
+  /* Scrollbar — whisper thin */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--parchment-deep));
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--ink-faint));
+  }
+
+  /* Selection — warm sage tint */
+  ::selection {
+    background: hsl(var(--sage-light));
+    color: hsl(var(--ink));
   }
 }
 
-@layer base {
-  * {
+@layer components {
+  /* ── Reading typography — for article content ─────────────────────── */
+  .prose-reading {
+    font-family: 'Lora', Georgia, serif;
+    font-size: 17px;
+    line-height: 1.85;
+    color: hsl(var(--ink));
+    max-width: 65ch;
+  }
 
-    @apply border-border;
+  .prose-reading p { margin-bottom: 1.4em; }
+  .prose-reading p:last-child { margin-bottom: 0; }
+
+  /* ── Card — parchment surface, no harsh shadow ───────────────────── */
+  .card-kosha {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 8px;
+    transition: border-color 250ms ease, transform 200ms ease;
   }
-  body {
-    @apply bg-background text-foreground;
+  .card-kosha:hover {
+    border-color: hsl(var(--ink-faint));
+    transform: translateY(-1px);
   }
+
+  /* ── Source type badge pill ─────────────────────────────────────────── */
+  .source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: hsl(var(--parchment-deep));
+    color: hsl(var(--ink-mid));
+  }
+
+  /* ── Sidebar nav link ───────────────────────────────────────────────── */
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 400;
+    color: hsl(var(--ink-mid));
+    text-decoration: none;
+    transition: background 200ms ease, color 200ms ease;
+  }
+  .nav-link:hover {
+    background: hsl(var(--parchment-deep));
+    color: hsl(var(--ink));
+  }
+  .nav-link.active {
+    background: hsl(var(--sage-light));
+    color: hsl(var(--sage-dark));
+    font-weight: 500;
+  }
+
+  /* ── Divider with text (e.g. "Today") ─────────────────────────────── */
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: hsl(var(--ink-faint));
+    margin: 2rem 0 1rem;
+  }
+  .section-divider::before,
+  .section-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: hsl(var(--border));
+  }
+
+  /* ── Fade-in animation for items ───────────────────────────────────── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-up {
+    animation: fadeUp 400ms ease forwards;
+  }
+
+  /* stagger helpers */
+  .fade-up-1 { animation-delay: 60ms;  opacity: 0; }
+  .fade-up-2 { animation-delay: 120ms; opacity: 0; }
+  .fade-up-3 { animation-delay: 180ms; opacity: 0; }
+  .fade-up-4 { animation-delay: 240ms; opacity: 0; }
+  .fade-up-5 { animation-delay: 300ms; opacity: 0; }
+
+  /* ── Skeleton shimmer (warm tone) ──────────────────────────────────── */
+  @keyframes shimmer {
+    from { background-position: -400px 0; }
+    to   { background-position:  400px 0; }
+  }
+
+  .skeleton-warm {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--parchment-mid)) 0%,
+      hsl(var(--parchment-deep)) 50%,
+      hsl(var(--parchment-mid)) 100%
+    );
+    background-size: 800px 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+    border-radius: 4px;
+  }
+
+  /* ── Grain texture overlay (very subtle, adds warmth) ───────────────  */
+  .grain::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    z-index: 9999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    background-size: 128px 128px;
+  }
+}
+
+/* ── Focus ring — always visible, always sage ───────────────────────────── */
+:focus-visible {
+  outline: 2px solid hsl(var(--sage));
+  outline-offset: 2px;
+  border-radius: 4px;
 }
