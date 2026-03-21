@@ -9,6 +9,13 @@ from schemas.connector_output import ConnectorOutput
 
 from sqlalchemy.exc import IntegrityError
 
+try:
+    from sentence_transformers import SentenceTransformer
+    _model = SentenceTransformer("all-MiniLM-L6-v2")  # 384 dims, matches your column
+    EMBEDDINGS_ENABLED = True
+except ImportError:
+    EMBEDDINGS_ENABLED = False
+
 logger = logging.getLogger(__name__)
 
 def get_connector_class(category: str, source_type: str):
@@ -73,6 +80,9 @@ def process_source(db: Session, source: Source, category: str):
                     parsed_content=item.content,
                     metadata_json=item.metadata,
                 ))
+                if EMBEDDINGS_ENABLED and item.content:
+                    embedding = _model.encode(item.content[:512]).tolist()  # truncate for speed
+                    db_content.embedding = embedding
             new_items_count += 1
         except IntegrityError:
             logger.warning(f"Race condition duplicate for: {item.title}")

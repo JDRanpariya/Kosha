@@ -14,7 +14,7 @@ services:
       - "5432:5432"
 
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/
 
     secrets:
       - db_password
@@ -68,6 +68,8 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: kosha-backend
+    volumes:
+      - .:/app
     ports:
       - "8000:8000"
 

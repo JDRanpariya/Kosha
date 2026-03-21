@@ -1,22 +1,14 @@
 # backend/db/migrations/env.py
 
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text  # add 'text'
 from alembic import context
-
-# Import your settings - this reads Docker secrets
 
 from backend.core.config import settings
 from backend.db.database import Base
-
-# Import all models so Alembic can see them
-
 from backend.db import models  # noqa
 
 config = context.config
-
-# Override sqlalchemy.url with our secret-loaded URL
-
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 if config.config_file_name is not None:
@@ -48,6 +40,10 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # Enable pgvector extension before any migration
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        connection.commit()
+        
         context.configure(
             connection=connection, 
             target_metadata=target_metadata

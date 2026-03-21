@@ -819,6 +819,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "redis" },
+    { name = "sentence-transformers" },
     { name = "spotipy" },
     { name = "sqlalchemy" },
     { name = "uvicorn", extra = ["standard"] },
@@ -835,7 +836,6 @@ dev = [
 ]
 ml = [
     { name = "numpy" },
-    { name = "sentence-transformers" },
     { name = "torch" },
 ]
 
@@ -860,7 +860,7 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23.0" },
     { name = "redis", specifier = ">=5.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5.0" },
-    { name = "sentence-transformers", marker = "extra == 'ml'", specifier = ">=3.0.0" },
+    { name = "sentence-transformers", specifier = ">=3.0.0" },
     { name = "spotipy", specifier = ">=2.23.0" },
     { name = "sqlalchemy", specifier = ">=2.0.0" },
     { name = "torch", marker = "extra == 'ml'", specifier = ">=2.3.0" },
