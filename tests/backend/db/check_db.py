@@ -1,6 +1,6 @@
 # backend/check_db.py
 from sqlalchemy import inspect
-from database import engine
+from backend.db.database import engine
 
 # Connect to the database and inspect it
 inspector = inspect(engine)
