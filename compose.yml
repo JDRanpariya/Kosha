@@ -95,6 +95,67 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: kosha-frontend
+    ports:
+      - "5173:5173"
+
+    volumes:
+      - ./frontend:/app        # hot reload
+      - /app/node_modules      # don't mount over installed modules
+
+    environment:
+      - NODE_ENV=development
+
+    depends_on:
+      - backend
+
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: kosha-worker
+    command: celery -A backend.worker.celery_app worker --loglevel=info
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432       
+      DB_USER: kosha      
+      DB_NAME: kosha_db   
+      REDIS_HOST: redis
+      REDIS_PORT: 6379    
+    secrets:
+      - db_password
+      - spotify_client_id
+      - spotify_client_secret
+      - youtube_api_key
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: kosha-beat
+    command: celery -A backend.worker.celery_app beat --loglevel=info
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432       
+      DB_USER: kosha      
+      DB_NAME: kosha_db   
+      REDIS_HOST: redis
+      REDIS_PORT: 6379    
+    depends_on:
+      - worker
+
 volumes:
   postgres_data:
   redis_data:

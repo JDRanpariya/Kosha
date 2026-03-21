@@ -4,8 +4,8 @@ WORKDIR /app
 
 # Cache layer: install deps first
 
-COPY package.json bun.lockb ./
-RUN bun install --frozen-lockfile
+COPY package.json ./
+RUN bun install
 
 COPY . .
 
