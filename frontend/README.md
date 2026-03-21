@@ -1,3 +1,6 @@
+> ⚠️ **Status: Not yet scaffolded.** This describes the planned frontend.
+> To start: `npm create vite@latest frontend -- --template react-ts`
+
 # Frontend
 
 Web Interface for Daily and Weekly Digest.

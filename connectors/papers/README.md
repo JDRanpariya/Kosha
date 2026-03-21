@@ -1,5 +1,9 @@
-## TODO
+## Implemented
+- [x] arXiv — via official RSS feed (`connectors/papers/arxiv.py`)
+  - Supports category filtering e.g. `["cs.AI", "stat.ML"]`
+  - Fetches daily new submissions
 
+## TODO
 1. What publications to include? how many publications and journals are there? 
     - Directory of Open Access Journals doaj.org
     - https://en.wikipedia.org/wiki/List_of_academic_databases_and_search_engines

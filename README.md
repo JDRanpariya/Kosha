@@ -57,16 +57,16 @@ Spotify and YouTube secrets can be left empty — those connectors are skipped i
 
 ## ✅ Quick Checklist to Start Coding (Actionable)
 
-- [ ] Initialize repo + Docker Compose (Postgres, Redis, MinIO)  
-- [ ] Define DB schema (users, sources, items, interactions, feedback)  
-- [ ] Implement RSS & YouTube fetchers + HTML → Markdown parser  
+- [x] Initialize repo + Docker Compose (Postgres, Redis, MinIO)  
+- [x] Define DB schema (users, sources, items, interactions, feedback)  
+- [x] Implement RSS & YouTube fetchers + HTML → Markdown parser  
 - [ ] Add sentence-transformers embedding job and pgvector integration  
-- [ ] Build FastAPI endpoints for digest and feedback  
-- [x] Minimal React UI to view digest, mark likes/highlights, export to Obsidian  
+- [x] Build FastAPI endpoints for digest and feedback  
+- [ ] Minimal React UI to view digest, mark likes/highlights, export to Obsidian  
 
 ---
 
-[Full Architecture Details](./architecture.md)
+[Full Architecture Details](./docs/architecture.md)
 
 
 # Workflow

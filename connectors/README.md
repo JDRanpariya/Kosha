@@ -5,10 +5,10 @@
     - either scrapy or puppeteer
  
 ## TO DO
-- [ ] Implement Youtube
-- [ ] RSS
-- [ ] Spotify Podcast
-- [ ] Arxiv
+- [x] Implement Youtube
+- [x] RSS
+- [x] Spotify Podcast
+- [x] Arxiv
  
 ### Python Design Patterns to follow
 - https://refactoring.guru/design-patterns/python
@@ -41,7 +41,7 @@
     -   Summarization or embedding pre-processing (later stages)
 
 ### Consumption Sources
-- [ ] Move this to Ingetion Layer
+- [x] Move this to Ingetion Layer
 - [ ] Personal Youtube Subscriptions
 - [ ] Research Papers
   - [ ] arXiv Sanity Preserver to track ML related papers
@@ -115,6 +115,7 @@ You need a systematic approach that combines automation, AI, and manual review w
         Use Scite.ai to check citation intent analysis.
 
 ### Podcasts
+- [x] Spotify
 
 ### Conference Talks
 
