@@ -3,6 +3,7 @@
 import copy
 import hashlib
 import logging
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
@@ -125,7 +126,7 @@ def process_source(db: Session, source: Source, category: str) -> int:
         except Exception as exc:
             logger.error(f"Failed to save {item.title!r}: {exc}", exc_info=True)
 
-    source.last_fetched_at = func.now()
+    source.last_fetched_at = datetime.now(timezone.utc)
     db.commit()
 
     logger.info(

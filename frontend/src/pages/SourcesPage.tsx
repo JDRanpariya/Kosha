@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Trash2, RefreshCw, Check, X, Youtube } from 'lucide-react'
+import { Pause, Play } from 'lucide-react'
 import {
     useSources,
     useCreateSource,
@@ -192,7 +193,10 @@ function SourceRow({ source }: { source: Source }) {
                     onClick={() => update.mutate({ id: source.id, data: { enabled: !source.enabled } })}
                     className="p-1.5 rounded text-ink-faint hover:text-ink hover:bg-parchment-deep transition-colors"
                 >
-                    {source.enabled ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                    {source.enabled
+                        ? <Pause className="h-3.5 w-3.5" />   // "click to pause"
+                        : <Play className="h-3.5 w-3.5" />   // "click to resume"
+                    }
                 </button>
 
                 <button

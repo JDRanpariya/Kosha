@@ -32,7 +32,11 @@ export function SavedPage() {
             />
 
             {selectedId && (
-                <ItemDetail itemId={selectedId} onClose={() => setSelectedId(null)} />
+                <ItemDetail
+                    itemId={selectedId}
+                    isSaved={savedIds.has(selectedId)}   // ← ADD
+                    onClose={() => setSelectedId(null)}
+                />
             )}
         </>
     )

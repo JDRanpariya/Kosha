@@ -51,16 +51,13 @@ def search_items(
     results = db.execute(
         text(f"""
             SELECT
-                i.id,
-                i.title,
-                i.author,
-                i.url,
-                i.published_at,
-                i.source_id,
+                i.id, i.title, i.author, i.url, i.published_at, i.source_id,
+                s.type AS source_type,             -- ← ADD THIS
                 ic.parsed_content,
                 1 - (ic.embedding <=> '{embedding_literal}'::vector) AS similarity
             FROM items i
             JOIN item_content ic ON i.id = ic.item_id
+            JOIN sources s ON i.source_id = s.id   -- ← ADD THIS
             WHERE ic.embedding IS NOT NULL
             ORDER BY ic.embedding <=> '{embedding_literal}'::vector
             LIMIT :limit
@@ -76,6 +73,7 @@ def search_items(
             url=r.url,
             published_at=r.published_at,
             source_id=r.source_id,
+            source_type=r.source_type,   # ← ADD THIS
             preview=r.parsed_content[:200] if r.parsed_content else None,
             similarity=round(float(r.similarity), 3),
         )

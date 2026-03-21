@@ -8,6 +8,7 @@ from backend.api.dependencies import get_db, ensure_user_exists
 from backend.api.schemas import DigestResponse, ItemDetailResponse, ItemSummary, ItemDetail
 from backend.core.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from backend.services.items import ItemService
+from sqlalchemy.orm import joinedload
 
 from sqlalchemy.orm import Session
 
@@ -24,7 +25,6 @@ def get_daily_digest(
     """Get items from the last 24 hours with pagination."""
     service = ItemService(db)
     items, total = service.get_recent(hours=24, limit=limit, offset=offset)
-    
     return DigestResponse(
         date=date.today(),
         total=total,

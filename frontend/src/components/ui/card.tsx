@@ -5,7 +5,13 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('rounded-lg border bg-card text-card-foreground shadow-sm', className)}
+      className={cn(
+        // Was: rounded-lg border bg-card text-card-foreground shadow-sm
+        // Design system uses card-kosha for interactive cards, but for
+        // static cards (settings page, etc.) use tokens without hover:
+        'rounded-lg border border-border bg-card text-card-foreground',
+        className
+      )}
       {...props}
     />
   )

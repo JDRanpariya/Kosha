@@ -23,7 +23,7 @@ def list_sources(
     user_id: int = Depends(ensure_user_exists),
 ) -> SourceListResponse:
     """List all sources."""
-    sources = db.query(Source).all()
+    sources = db.query(Source).filter(Source.user_id == user_id).all()
     return SourceListResponse(
         sources=[
             SourceResponse(

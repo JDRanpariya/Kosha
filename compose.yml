@@ -87,7 +87,7 @@ services:
       - email_username
       - email_password
       - youtube_client_id
-      - youtube_secret_id
+      - youtube_client_secret
 
     depends_on:
       postgres:
@@ -134,7 +134,7 @@ services:
       - spotify_client_id
       - spotify_client_secret
       - youtube_client_id
-      - youtube_secret_id
+      - youtube_client_secret
       - youtube_api_key
       - github_api_token
       - email_username

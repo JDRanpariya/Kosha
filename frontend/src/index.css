@@ -243,6 +243,9 @@
   .fade-up-3 { animation-delay: 180ms; opacity: 0; }
   .fade-up-4 { animation-delay: 240ms; opacity: 0; }
   .fade-up-5 { animation-delay: 300ms; opacity: 0; }
+  .fade-up-6 { animation-delay: 360ms; opacity: 0; }
+  .fade-up-7 { animation-delay: 420ms; opacity: 0; }
+  .fade-up-8 { animation-delay: 480ms; opacity: 0; }
 
   /* ── Skeleton shimmer (warm tone) ──────────────────────────────────── */
   @keyframes shimmer {

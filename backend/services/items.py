@@ -9,7 +9,8 @@ from datetime import datetime, timezone, timedelta
 from typing import Sequence
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import exists
 
 from backend.api.schemas.items import ItemSummary, ItemDetail
 from backend.core.logging import get_logger
@@ -33,41 +34,9 @@ class ItemService:
         return self.db.query(Item).filter(Item.content_hash == content_hash).first()
     
     def exists_by_hash(self, content_hash: str) -> bool:
-        """Check if item with hash exists."""
         return self.db.query(
-            self.db.query(Item).filter(Item.content_hash == content_hash).exists()
+            exists().where(Item.content_hash == content_hash)
         ).scalar()
-    
-    def get_recent(
-        self,
-        hours: int = 24,
-        limit: int = 20,
-        offset: int = 0,
-    ) -> tuple[list[Item], int]:
-        """
-        Get recent items within time window.
-        
-        Returns:
-            Tuple of (items, total_count)
-        """
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
-        
-        total = (
-            self.db.query(func.count(Item.id))
-            .filter(Item.published_at >= cutoff)
-            .scalar()
-        )
-        
-        items = (
-            self.db.query(Item)
-            .filter(Item.published_at >= cutoff)
-            .order_by(Item.published_at.desc())
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
-        
-        return items, total
     
     def get_with_content(self, item_id: int) -> tuple[Item, ItemContent | None] | None:
         """Get item with its content."""
@@ -83,11 +52,33 @@ class ItemService:
         
         return item, content
     
+    def get_recent(self, hours: int = 24, limit: int = 20, offset: int = 0):
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        total = (
+            self.db.query(func.count(Item.id))
+            .filter(Item.published_at >= cutoff)
+            .scalar()
+        )
+        items = (
+            self.db.query(Item)
+            .options(joinedload(Item.source))   # ← ADD THIS
+            .filter(Item.published_at >= cutoff)
+            .order_by(Item.published_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return items, total
+
     def get_by_ids(self, item_ids: list[int]) -> list[Item]:
-        """Get multiple items by IDs."""
         if not item_ids:
             return []
-        return self.db.query(Item).filter(Item.id.in_(item_ids)).all()
+        return (
+            self.db.query(Item)
+            .options(joinedload(Item.source))   # ← ADD THIS
+            .filter(Item.id.in_(item_ids))
+            .all()
+        )
     
     @staticmethod
     def compute_content_hash(url: str) -> str:
@@ -104,6 +95,7 @@ class ItemService:
             url=item.url,
             published_at=item.published_at,
             source_id=item.source_id,
+            source_type=item.source.type if item.source else None,
             preview=preview,
             similarity=similarity,
         )

@@ -20,6 +20,7 @@ class ItemSummary(BaseSchema):
     url: str
     published_at: datetime | None = None
     source_id: int
+    source_type: str | None = None
     preview: str | None = None
     similarity: float | None = None
 
