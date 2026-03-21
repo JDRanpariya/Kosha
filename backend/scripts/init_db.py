@@ -1,6 +1,6 @@
 # backend/init_db.py
-from database import engine, Base
-import models
+from backend.db.database import engine, Base
+from backend.db import models
 from sqlalchemy import text
 
 print("Creating database tables...")
