@@ -14,7 +14,7 @@ export interface Source {
   url: string | null
   enabled: boolean
   last_fetched_at: string | null
-  config: Record<string, unknown>
+  config_json: Record<string, unknown>
 }
 
 export interface Item {
@@ -36,6 +36,8 @@ export interface ItemDetail extends Item {
 export interface DigestResponse {
   date: string
   total: number
+  limit: number
+  offset: number
   items: Item[]
 }
 

@@ -5,6 +5,7 @@ import type {
   Source,
   SourceCreate,
   FeedbackType,
+  SavedResponse,
 } from '@/types'
 
 const API_BASE = '/api'
@@ -28,8 +29,11 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 
 // Digest endpoints
 export const digestApi = {
-  getDaily: () => fetchJson<DigestResponse>('/digest/daily'),
-  getItem: (id: number) => fetchJson<ItemDetail>(`/digest/item/${id}`),
+  getDaily: (limit = 20, offset = 0) =>
+    fetchJson<DigestResponse>(`/digest/daily?limit=${limit}&offset=${offset}`),
+
+  getItem: (id: number) =>
+    fetchJson<{ item: ItemDetail }>(`/digest/item/${id}`).then((r) => r.item),
 }
 
 // Search endpoints
@@ -40,17 +44,23 @@ export const searchApi = {
 
 // Sources endpoints
 export const sourcesApi = {
-  list: () => fetchJson<Source[]>('/sources/'),
+  list: () =>
+    fetchJson<{ sources: Source[]; count: number }>('/sources/').then(
+      (r) => r.sources
+    ),
+
   create: (source: SourceCreate) =>
     fetchJson<{ id: number; name: string }>('/sources/', {
       method: 'POST',
       body: JSON.stringify(source),
     }),
+
   update: (id: number, data: Partial<Source>) =>
     fetchJson<{ status: string }>(`/sources/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+
   delete: (id: number) =>
     fetchJson<{ status: string }>(`/sources/${id}`, {
       method: 'DELETE',
@@ -64,8 +74,9 @@ export const feedbackApi = {
       method: 'POST',
       body: JSON.stringify(feedback),
     }),
+
   getSaved: () =>
-    fetchJson<{ count: number; item_ids: number[] }>('/feedback/saved'),
+    fetchJson<SavedResponse>('/feedback/saved'),
 }
 
 // Ingest endpoints
@@ -74,6 +85,7 @@ export const ingestApi = {
     fetchJson<{ status: string; source_id: number }>(`/ingest/trigger/${sourceId}`, {
       method: 'POST',
     }),
+
   triggerAll: () =>
     fetchJson<{ status: string }>('/ingest/trigger-all', {
       method: 'POST',
