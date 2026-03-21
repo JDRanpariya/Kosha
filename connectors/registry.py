@@ -40,7 +40,7 @@ try:
         "youtube": {
             "class": YouTubeConnector,
             "display_name": "YouTube",
-            "required_fields": ["api_key", "channel_ids"],
+            "required_fields": ["api_key", "channels"],
         },
     }
 except ImportError:

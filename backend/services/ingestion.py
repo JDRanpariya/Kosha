@@ -48,11 +48,10 @@ def process_source(db: Session, source: Source, category: str):
     for item in fetched_items:
         # 4. Deduplication: Generate a unique content hash
         # We use the URL as a stable identifier for now.
-        raw_content = item.content or ""
-        content_hash = hashlib.sha256(raw_content.encode()).hexdigest()
+        url_hash = hashlib.sha256(str(item.url).encode()).hexdigest()
         
         # Check if the item already exists in the database
-        existing_item = db.query(Item).filter(Item.content_hash == content_hash).first()
+        existing_item = db.query(Item).filter(Item.content_hash == url_hash).first()
         if existing_item:
             logger.debug(f"Skipping existing item: {item.title}")
             continue
