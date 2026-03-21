@@ -20,7 +20,7 @@ class Source(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     name = Column(String, nullable=False)
-    type = Column(String, index=True) # e.g., 'rss', 'youtube'
+    type = Column(String, index=True)
     url = Column(String)
     config_json = Column(JSON, default=dict)
     last_fetched_at = Column(DateTime(timezone=True), nullable=True)
@@ -40,9 +40,18 @@ class Item(Base):
     url = Column(String)
     content_hash = Column(String, unique=True)
     source = relationship("Source", back_populates="items")
-    content = relationship("ItemContent", uselist=False, back_populates="item",
-                           cascade="all, delete-orphan")
-    
+    content = relationship(
+        "ItemContent",
+        uselist=False,
+        back_populates="item",
+        cascade="all, delete-orphan",
+    )
+    interactions = relationship(
+        "Interaction",
+        back_populates="item",
+        cascade="all, delete-orphan",
+    )
+
 
 class ItemContent(Base):
     __tablename__ = "item_content"
@@ -51,7 +60,6 @@ class ItemContent(Base):
     raw_content = Column(Text)
     parsed_content = Column(Text)
     metadata_json = Column(JSON, default=dict)
-    # pgvector embedding column (size 384 is typical for sentence-transformers)
     embedding = Column(Vector(384))
     item = relationship("Item", back_populates="content")
 
@@ -61,7 +69,10 @@ class Interaction(Base):
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    item_id = Column(Integer, ForeignKey("items.id"))
-    type = Column(String) # 'viewed', 'saved', 'dismissed'
+    # ondelete CASCADE so the DB enforces cleanup even if SQLAlchemy
+    # ORM cascade is bypassed (e.g. bulk deletes via raw SQL)
+    item_id = Column(Integer, ForeignKey("items.id", ondelete="CASCADE"))
+    type = Column(String)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     metadata_json = Column(JSON, default=dict)
+    item = relationship("Item", back_populates="interactions")

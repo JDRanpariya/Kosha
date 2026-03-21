@@ -24,36 +24,50 @@ def search_items(
 ) -> SearchResponse | SearchUnavailableResponse:
     """Semantic search across all items using pgvector."""
     embedding_service = get_embedding_service()
-    
+
     if not embedding_service.available:
         return SearchUnavailableResponse(
             error="Search not available (sentence-transformers not installed)",
             available=False,
         )
-    
-    # Generate embedding for query
+
     query_embedding = embedding_service.encode(q)
     if not query_embedding:
         return SearchUnavailableResponse(
             error="Failed to generate query embedding",
             available=False,
         )
-    
-    # pgvector cosine distance search
+
+    # Format the vector as a PostgreSQL literal and embed it directly in the
+    # SQL string.  This sidesteps the SQLAlchemy parameter-parser conflict
+    # that occurs when `:param_name::vector` appears in a text() query —
+    # the double-colon cast immediately following the named-parameter marker
+    # causes a ProgrammingError (syntax error at or near ":").
+    #
+    # Embedding a list of floats directly is safe: there is no injection risk
+    # because the values come from the ML model, not user input.
+    embedding_literal = "[" + ",".join(str(v) for v in query_embedding) + "]"
+
     results = db.execute(
-        text("""
-            SELECT i.id, i.title, i.author, i.url, i.published_at, i.source_id,
-                   ic.parsed_content,
-                   1 - (ic.embedding <=> :embedding::vector) as similarity
+        text(f"""
+            SELECT
+                i.id,
+                i.title,
+                i.author,
+                i.url,
+                i.published_at,
+                i.source_id,
+                ic.parsed_content,
+                1 - (ic.embedding <=> '{embedding_literal}'::vector) AS similarity
             FROM items i
             JOIN item_content ic ON i.id = ic.item_id
             WHERE ic.embedding IS NOT NULL
-            ORDER BY ic.embedding <=> :embedding::vector
+            ORDER BY ic.embedding <=> '{embedding_literal}'::vector
             LIMIT :limit
         """),
-        {"embedding": str(query_embedding), "limit": limit}
+        {"limit": limit},
     ).fetchall()
-    
+
     items = [
         ItemSummary(
             id=r.id,
@@ -63,11 +77,11 @@ def search_items(
             published_at=r.published_at,
             source_id=r.source_id,
             preview=r.parsed_content[:200] if r.parsed_content else None,
-            similarity=round(r.similarity, 3),
+            similarity=round(float(r.similarity), 3),
         )
         for r in results
     ]
-    
+
     return SearchResponse(
         query=q,
         count=len(items),
