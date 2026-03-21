@@ -87,8 +87,6 @@ The app reads secrets from `infra/secrets/<name>.txt`. Create the directory (it 
 ```bash
 # Mandatory
 echo "localpassword"       > infra/secrets/db_password.txt
-
-# Optional — only needed if you use those connectors
 echo "your_minio_user"     > infra/secrets/minio_root_user.txt
 echo "your_minio_pass"     > infra/secrets/minio_root_password.txt
 echo "your_spotify_id"     > infra/secrets/spotify_client_id.txt
