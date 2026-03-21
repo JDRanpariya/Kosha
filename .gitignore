@@ -2,8 +2,12 @@
 # You can add global rules here in the future if needed
 
 .env
-secrets/
 *.db
+.python-version
+
+# .gitignore - Make sure secrets are ignored
+infra/secrets/*.txt
+!infra/secrets/.gitkeep
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
