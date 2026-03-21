@@ -46,8 +46,11 @@ class Settings(BaseSettings):
     )
 
     # ── Connector credentials ─────────────────────────────────────────────────
-    SPOTIFY_API_TOKEN: str = Field(
-        default_factory=lambda: read_secret("spotify_api_token")
+    SPOTIFY_CLIENT_ID: str = Field(
+        default_factory=lambda: read_secret("spotify_client_id")
+    )
+    SPOTIFY_CLIENT_SECRET: str = Field(
+        default_factory=lambda: read_secret("spotify_client_secret")
     )
     # YouTube Data API key (for manual channel connector)
     YOUTUBE_API_KEY: str = Field(
