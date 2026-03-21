@@ -47,7 +47,7 @@
 - [ ] Implement RSS & YouTube fetchers + HTML → Markdown parser  
 - [ ] Add sentence-transformers embedding job and pgvector integration  
 - [ ] Build FastAPI endpoints for digest and feedback  
-- [ ] Minimal React UI to view digest, mark likes/highlights, export to Obsidian  
+- [x] Minimal React UI to view digest, mark likes/highlights, export to Obsidian  
 
 ---
 
