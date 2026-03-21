@@ -1,3 +1,5 @@
+# compose.yml
+
 version: '3.8'
 
 services:
@@ -10,10 +12,18 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     ports:
       - "5432:5432"
+
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - postgres_data:/var/lib/postgresql/data
+
     secrets:
       - db_password
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kosha -d kosha_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   redis:
@@ -21,8 +31,15 @@ services:
     container_name: kosha-redis
     ports:
       - "6379:6379"
+
     volumes:
       - redis_data:/data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   minio:
@@ -34,12 +51,46 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
+
     volumes:
       - minio_data:/data
+
     command: server /data --console-address ":9001"
     secrets:
       - minio_root_user
       - minio_root_password
+
+    restart: unless-stopped
+
+  # Add backend service
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: kosha-backend
+    ports:
+      - "8000:8000"
+
+    environment:
+      # Non-secret config via env vars
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: kosha
+      DB_NAME: kosha_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    secrets:
+      # Secrets via Docker secrets
+      - db_password
+      - spotify_client_id
+      - spotify_client_secret
+      - youtube_api_key
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
@@ -54,3 +105,9 @@ secrets:
     file: ./infra/secrets/minio_root_user.txt
   minio_root_password:
     file: ./infra/secrets/minio_root_password.txt
+  spotify_client_id:
+    file: ./infra/secrets/spotify_client_id.txt
+  spotify_client_secret:
+    file: ./infra/secrets/spotify_client_secret.txt
+  youtube_api_key:
+    file: ./infra/secrets/youtube_api_key.txt
