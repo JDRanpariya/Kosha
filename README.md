@@ -66,6 +66,7 @@ sudo apt install postgresql postgresql-contrib
 **Create the database:**
 
 ```bash
+psql postgres -c "ALTER USER kosha SUPERUSER;"
 psql postgres <<SQL
   CREATE USER kosha WITH PASSWORD 'localpassword';
   CREATE DATABASE kosha_db OWNER kosha;
@@ -76,7 +77,7 @@ SQL
 **Enable the extension** (Alembic does this automatically on migrate, but you can do it manually if needed):
 
 ```bash
-psql -U kosha kosha_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
+psql postgres -c "CREATE EXTENSION IF NOT EXISTS vector;"
 ```
 
 ### 4. Create secrets files
