@@ -1,40 +1,48 @@
 # backend/api/routes/search.py
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-from backend.db.database import get_db
-from backend.db.models import Item, ItemContent
+from backend.api.dependencies import get_db, ensure_user_exists
+from backend.api.schemas import SearchResponse, SearchUnavailableResponse, ItemSummary
+from backend.core.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+from backend.services.embedding import get_embedding_service
 
 router = APIRouter()
 
-# Load model once at startup
 
-try:
-    from sentence_transformers import SentenceTransformer
-    _model = SentenceTransformer("all-MiniLM-L6-v2")
-    SEARCH_ENABLED = True
-except ImportError:
-    SEARCH_ENABLED = False
-
-@router.get("/")
+@router.get(
+    "/",
+    response_model=SearchResponse | SearchUnavailableResponse,
+)
 def search_items(
     q: str = Query(..., min_length=2),
-    limit: int = Query(20, le=50),
-    db: Session = Depends(get_db)
-):
+    limit: int = Query(DEFAULT_PAGE_SIZE, le=MAX_PAGE_SIZE),
+    db: Session = Depends(get_db),
+    user_id: int = Depends(ensure_user_exists),
+) -> SearchResponse | SearchUnavailableResponse:
     """Semantic search across all items using pgvector."""
-    if not SEARCH_ENABLED:
-        return {"error": "Search not available (sentence-transformers not installed)"}
+    embedding_service = get_embedding_service()
+    
+    if not embedding_service.available:
+        return SearchUnavailableResponse(
+            error="Search not available (sentence-transformers not installed)",
+            available=False,
+        )
     
     # Generate embedding for query
-    query_embedding = _model.encode(q).tolist()
+    query_embedding = embedding_service.encode(q)
+    if not query_embedding:
+        return SearchUnavailableResponse(
+            error="Failed to generate query embedding",
+            available=False,
+        )
     
     # pgvector cosine distance search
     results = db.execute(
         text("""
-            SELECT i.id, i.title, i.author, i.url, i.published_at,
+            SELECT i.id, i.title, i.author, i.url, i.published_at, i.source_id,
                    ic.parsed_content,
                    1 - (ic.embedding <=> :embedding::vector) as similarity
             FROM items i
@@ -46,19 +54,22 @@ def search_items(
         {"embedding": str(query_embedding), "limit": limit}
     ).fetchall()
     
-    return {
-        "query": q,
-        "count": len(results),
-        "items": [
-            {
-                "id": r.id,
-                "title": r.title,
-                "author": r.author,
-                "url": r.url,
-                "published_at": r.published_at,
-                "preview": r.parsed_content[:200] if r.parsed_content else None,
-                "similarity": round(r.similarity, 3)
-            }
-            for r in results
-        ]
-    }
+    items = [
+        ItemSummary(
+            id=r.id,
+            title=r.title,
+            author=r.author,
+            url=r.url,
+            published_at=r.published_at,
+            source_id=r.source_id,
+            preview=r.parsed_content[:200] if r.parsed_content else None,
+            similarity=round(r.similarity, 3),
+        )
+        for r in results
+    ]
+    
+    return SearchResponse(
+        query=q,
+        count=len(items),
+        items=items,
+    )

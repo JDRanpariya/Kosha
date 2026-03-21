@@ -11,7 +11,10 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+# Legacy function - use backend.api.dependencies.get_db instead
+
 def get_db():
+    """Deprecated: Use backend.api.dependencies.get_db"""
     db = SessionLocal()
     try:
         yield db
