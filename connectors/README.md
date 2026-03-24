@@ -6,9 +6,10 @@
  
 ## TO DO
 - [x] Implement Youtube
+- [ ] Add biorxiv
 - [x] RSS
-- [x] Spotify Podcast
-- [x] Arxiv
+- [x] arxiv
+- [x] hackernews
  
 ### Python Design Patterns to follow
 - https://refactoring.guru/design-patterns/python
@@ -114,8 +115,6 @@ You need a systematic approach that combines automation, AI, and manual review w
         If a paper gets cited but mostly in a negative or irrelevant way, it’s likely not a meaningful contribution.
         Use Scite.ai to check citation intent analysis.
 
-### Podcasts
-- [x] Spotify
 
 ### Conference Talks
 
