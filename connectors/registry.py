@@ -4,6 +4,7 @@ from connectors.subscriptions.email_imap import EmailImapConnector
 from connectors.subscriptions.arxiv import ArxivConnector
 from connectors.subscriptions.youtube import YouTubeConnector
 from connectors.discovery.hackernews import HackerNewsConnector
+from connectors.discovery.reddit import RedditConnector
 
 CONNECTOR_REGISTRY: dict[str, dict[str, dict]] = {
 
@@ -68,6 +69,21 @@ CONNECTOR_REGISTRY: dict[str, dict[str, dict]] = {
                 "tags", "query", "min_points", "max_results", "sort_by_date",
             ],
             "example_config": {"tags": "front_page", "min_points": 100},
+        },
+        "reddit": {
+            "class": RedditConnector,
+            "display_name": "Reddit",
+            "required_fields": ["subreddits"],
+            "optional_fields": [
+                "listing", "time_filter", "min_score",
+                "max_results", "include_self_text", "exclude_nsfw",
+            ],
+            "example_config": {
+                "subreddits": ["MachineLearning", "LocalLLaMA"],
+                "listing": "top",
+                "time_filter": "week",
+                "min_score": 50,
+            },
         },
     },
 }

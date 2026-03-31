@@ -12,7 +12,7 @@ Accepts either:
 """
 
 from connectors.base import ConnectorConfig
-from connectors.newsletters.rss import RssNewsletterConnector
+from connectors.subscriptions.rss import RssNewsletterConnector
 from schemas.connector_output import ConnectorOutput
 
 
