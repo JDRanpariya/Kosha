@@ -13,12 +13,8 @@ from backend.db.models import Item, ItemContent, Source
 from connectors.registry import CONNECTOR_REGISTRY, get_connector_class
 from schemas.connector_output import ConnectorOutput
 
-try:
-    from sentence_transformers import SentenceTransformer
-    _model = SentenceTransformer("all-MiniLM-L6-v2")
-    EMBEDDINGS_ENABLED = True
-except ImportError:
-    EMBEDDINGS_ENABLED = False
+from backend.services.embedding import get_embedding_service
+
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +28,7 @@ def _inject_secrets(source_type: str, config: dict) -> dict:
 
     config = copy.deepcopy(config)
 
-    if source_type == "spotify":
-        if not config.get("client_id"):
-            config["client_id"] = settings.SPOTIFY_CLIENT_ID
-        if not config.get("client_secret"):
-            config["client_secret"] = settings.SPOTIFY_CLIENT_SECRET
-
-    elif source_type == "youtube":
+    if source_type == "youtube":
         if not config.get("api_key"):
             config["api_key"] = settings.YOUTUBE_API_KEY
 
@@ -57,12 +47,14 @@ def _inject_secrets(source_type: str, config: dict) -> dict:
 
 def process_source(db: Session, source: Source, category: str) -> int:
     """Full ingestion workflow for a single source. Returns count of new items."""
-    logger.info(f"Starting ingestion — source {source.id} type={source.type!r}")
+    logger.info(f"Starting ingestion — source {
+                source.id} type={source.type!r}")
 
     ConnectorClass = get_connector_class(category, source.type)
     if not ConnectorClass:
         logger.error(
-            f"No connector registered for category={category!r} type={source.type!r}"
+            f"No connector registered for category={
+                category!r} type={source.type!r}"
         )
         return 0
 
@@ -71,7 +63,8 @@ def process_source(db: Session, source: Source, category: str) -> int:
     try:
         connector = ConnectorClass(config)
     except Exception as exc:
-        logger.error(f"Failed to initialise connector for source {source.id}: {exc}")
+        logger.error(f"Failed to initialise connector for source {
+                     source.id}: {exc}")
         return 0
 
     try:
@@ -83,6 +76,8 @@ def process_source(db: Session, source: Source, category: str) -> int:
         return 0
 
     new_items_count = 0
+
+    embedding_service = get_embedding_service()
 
     for item in fetched_items:
         content_hash = hashlib.sha256(str(item.url).encode()).hexdigest()
@@ -113,24 +108,24 @@ def process_source(db: Session, source: Source, category: str) -> int:
                 )
                 db.add(db_content)
 
-                if EMBEDDINGS_ENABLED and item.content:
-                    embedding = _model.encode(
-                        item.content, show_progress_bar=False
-                    ).tolist()
-                    db_content.embedding = embedding
+                if embedding_service.available and item.content:
+                    db_content.embedding = embedding_service.encode(
+                        item.content)
 
             new_items_count += 1
 
         except IntegrityError:
             logger.warning(f"Race-condition duplicate skipped: {item.title!r}")
         except Exception as exc:
-            logger.error(f"Failed to save {item.title!r}: {exc}", exc_info=True)
+            logger.error(f"Failed to save {item.title!r}: {
+                         exc}", exc_info=True)
 
     source.last_fetched_at = datetime.now(timezone.utc)
     db.commit()
 
     logger.info(
-        f"Ingestion complete — source {source.id} added {new_items_count} new items."
+        f"Ingestion complete — source {source.id} added {
+            new_items_count} new items."
     )
     return new_items_count
 

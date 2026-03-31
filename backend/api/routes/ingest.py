@@ -11,21 +11,16 @@ router = APIRouter()
 
 CATEGORY_MAP: dict[str, str] = {
     # newsletters
-    "rss":        "newsletters",
-    "substack":   "newsletters",
-    "email_imap": "newsletters",
+    "rss":        "subscriptions",
+    "substack":   "subscriptions",
+    "email_imap": "subscriptions",
     # papers
-    "arxiv":      "papers",
+    "arxiv":      "subscriptions",
     # social
-    "hackernews": "social",
-    "reddit":     "social",
-    # dev
-    "github":     "dev",
-    # podcasts
-    "spotify":    "podcasts",
+    "hackernews": "discovery",
+    "reddit":     "discovery",
     # videos
-    "youtube":    "videos",
-    "youtube_subscriptions":  "videos",
+    "youtube":    "subscriptions",
 }
 
 

@@ -16,13 +16,25 @@ from backend.db.models import Source
 
 router = APIRouter()
 
+_SENSITIVE_KEYS = {
+    "password", "access_token", "refresh_token",
+    "client_secret", "api_key", "api_token",
+}
+
+
+def _redact(config: dict) -> dict:
+    """Strip secrets before sending to frontend."""
+    return {
+        k: "••••••" if k in _SENSITIVE_KEYS and v else v
+        for k, v in (config or {}).items()
+    }
+
 
 @router.get("/", response_model=SourceListResponse)
 def list_sources(
     db: Session = Depends(get_db),
     user_id: int = Depends(ensure_user_exists),
 ) -> SourceListResponse:
-    """List all sources."""
     sources = db.query(Source).filter(Source.user_id == user_id).all()
     return SourceListResponse(
         sources=[
@@ -33,7 +45,7 @@ def list_sources(
                 url=s.url,
                 enabled=s.enabled,
                 last_fetched_at=s.last_fetched_at,
-                config_json=s.config_json or {},
+                config_json=_redact(s.config_json),  # ← REDACTED
             )
             for s in sources
         ],
@@ -59,7 +71,7 @@ def create_source(
     db.add(db_source)
     db.commit()
     db.refresh(db_source)
-    
+
     return SourceCreatedResponse(id=db_source.id, name=db_source.name)
 
 
@@ -70,18 +82,22 @@ def update_source(
     db: Session = Depends(get_db),
     user_id: int = Depends(ensure_user_exists),
 ) -> StatusResponse:
-    """Update a source."""
-    db_source = db.query(Source).filter(Source.id == source_id).first()
+    db_source = (
+        db.query(Source)
+        # ← ADD user_id
+        .filter(Source.id == source_id, Source.user_id == user_id)
+        .first()
+    )
     if not db_source:
         raise HTTPException(status_code=404, detail="Source not found")
-    
+
     if source.name is not None:
         db_source.name = source.name
     if source.enabled is not None:
         db_source.enabled = source.enabled
     if source.config_json is not None:
         db_source.config_json = source.config_json
-    
+
     db.commit()
     return StatusResponse(status="updated")
 
@@ -92,11 +108,15 @@ def delete_source(
     db: Session = Depends(get_db),
     user_id: int = Depends(ensure_user_exists),
 ) -> StatusResponse:
-    """Delete a source."""
-    db_source = db.query(Source).filter(Source.id == source_id).first()
+    db_source = (
+        db.query(Source)
+        # ← ADD user_id
+        .filter(Source.id == source_id, Source.user_id == user_id)
+        .first()
+    )
     if not db_source:
         raise HTTPException(status_code=404, detail="Source not found")
-    
+
     db.delete(db_source)
     db.commit()
     return StatusResponse(status="deleted")

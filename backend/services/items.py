@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from backend.api.schemas.items import ItemSummary, ItemDetail
 from backend.core.logging import get_logger
-from backend.db.models import Item, ItemContent, Interaction
+from backend.db.models import Item, ItemContent, Interaction, Source
 
 logger = get_logger(__name__)
 
@@ -47,13 +47,8 @@ class ItemService:
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[Item], int]:
-        """
-        Get recent items, excluding any the user has dismissed.
-        Dismissed items are filtered permanently — skip means skip.
-        """
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
 
-        # Subquery: item IDs this user has dismissed
         dismissed_sq = (
             self.db.query(Interaction.item_id)
             .filter(
@@ -63,10 +58,19 @@ class ItemService:
             .subquery()
         )
 
+        # ── FIX: scope to this user's sources ──────────────────────
+        user_source_ids = (
+            self.db.query(Source.id)
+            .filter(Source.user_id == user_id)
+            .subquery()
+        )
+
         base_filter = [
             Item.published_at >= cutoff,
+            Item.source_id.in_(user_source_ids),   # ← ADD THIS
             ~Item.id.in_(dismissed_sq),
         ]
+        # ───────────────────────────────────────────────────────────
 
         total = (
             self.db.query(func.count(Item.id))

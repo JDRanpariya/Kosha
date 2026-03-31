@@ -6,7 +6,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.routes import digest, sources, feedback, ingest, search
-from backend.api.routes import youtube_oauth
 from backend.api.schemas import StatusResponse
 from backend.core.config import settings
 from backend.core.logging import setup_logging, set_correlation_id, get_logger
@@ -51,7 +50,6 @@ app.include_router(ingest.router,        prefix="/api/ingest",   tags=["ingest"]
 app.include_router(search.router,        prefix="/api/search",   tags=["search"])
 app.include_router(digest.router,        prefix="/api/digest",   tags=["digest"])
 app.include_router(feedback.router,      prefix="/api/feedback", tags=["feedback"])
-app.include_router(youtube_oauth.router, prefix="/api/youtube/oauth", tags=["youtube"])
 
 
 @app.get("/health", response_model=StatusResponse)
