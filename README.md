@@ -1,4 +1,4 @@
-# Kosha 🪷
+# [Kosha](https://jdranpariya.github.io/projects/kosha/) 🪷
 
 A fully open-source, self-hosted personal content aggregator. Kosha pulls from RSS feeds, arXiv, Hacker News, Reddit, YouTube channels, and email newsletters — stores everything in a searchable Postgres + pgvector database, and serves it through a clean REST API with a warm, reading-focused frontend.
 
