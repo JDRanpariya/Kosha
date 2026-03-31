@@ -4,16 +4,13 @@ import { useFeedback } from '@/hooks/useItems'
 import type { Item } from '@/types'
 
 const SOURCE_META: Record<string, { label: string; cls: string }> = {
-  rss:                   { label: 'RSS',        cls: 'text-amber-700 dark:text-amber-400'   },
-  substack:              { label: 'Substack',   cls: 'text-orange-700 dark:text-orange-400' },
-  email_imap:            { label: 'Newsletter', cls: 'text-violet-700 dark:text-violet-400' },
-  arxiv:                 { label: 'Paper',      cls: 'text-blue-700 dark:text-blue-400'     },
-  hackernews:            { label: 'HN',         cls: 'text-orange-600 dark:text-orange-400' },
-  reddit:                { label: 'Reddit',     cls: 'text-red-600 dark:text-red-400'       },
-  github:                { label: 'GitHub',     cls: 'text-ink-mid'                         },
-  spotify:               { label: 'Podcast',    cls: 'text-green-700 dark:text-green-400'   },
-  youtube:               { label: 'Video',      cls: 'text-red-600 dark:text-red-400'       },
-  youtube_subscriptions: { label: 'YouTube',    cls: 'text-red-600 dark:text-red-400'       },
+  rss:        { label: 'RSS',        cls: 'text-amber-700 dark:text-amber-400'   },
+  substack:   { label: 'Substack',   cls: 'text-orange-700 dark:text-orange-400' },
+  email_imap: { label: 'Newsletter', cls: 'text-violet-700 dark:text-violet-400' },
+  arxiv:      { label: 'Paper',      cls: 'text-blue-700 dark:text-blue-400'     },
+  hackernews: { label: 'HN',         cls: 'text-orange-600 dark:text-orange-400' },
+  reddit:     { label: 'Reddit',     cls: 'text-red-600 dark:text-red-400'       },
+  youtube:    { label: 'Video',      cls: 'text-red-600 dark:text-red-400'       },
 }
 
 interface ItemCardProps {

@@ -20,22 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 def _inject_secrets(source_type: str, config: dict) -> dict:
-    """
-    Merge credentials from settings into the config dict.
-    Only fills keys that are missing or empty — explicit values are never overwritten.
-    """
     from backend.core.config import settings
-
     config = copy.deepcopy(config)
 
     if source_type == "youtube":
         if not config.get("api_key"):
             config["api_key"] = settings.YOUTUBE_API_KEY
-
-    elif source_type == "github":
-        if not config.get("api_token"):
-            config["api_token"] = settings.GITHUB_API_TOKEN
-
     elif source_type == "email_imap":
         if not config.get("username"):
             config["username"] = settings.EMAIL_USERNAME

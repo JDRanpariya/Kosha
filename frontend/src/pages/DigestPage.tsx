@@ -6,18 +6,14 @@ import { cn } from '@/lib/utils'
 import type { Item } from '@/types'
 
 // ── Source grouping ───────────────────────────────────────────────────────
+const SOURCE_GROUPS: Array<{ key: string; label: string; types: string[] }> = [
+    { key: 'papers', label: 'Research papers', types: ['arxiv'] },
+    { key: 'essays', label: 'Essays & newsletters', types: ['rss', 'substack', 'email_imap'] },
+    { key: 'social', label: 'Discussions', types: ['hackernews', 'reddit'] },
+    { key: 'videos', label: 'Videos', types: ['youtube'] },
+]
+// Rest of file unchanged.
 
-const SOURCE_GROUPS: Array<{
-    key: string
-    label: string
-    types: string[]
-}> = [
-        { key: 'papers', label: 'Research papers', types: ['arxiv'] },
-        { key: 'essays', label: 'Essays & newsletters', types: ['rss', 'substack', 'email_imap'] },
-        { key: 'social', label: 'Discussions', types: ['hackernews', 'reddit'] },
-        { key: 'videos', label: 'Videos & podcasts', types: ['youtube', 'youtube_subscriptions', 'spotify'] },
-        { key: 'dev', label: 'Dev & open source', types: ['github'] },
-    ]
 
 function groupItems(items: Item[]) {
     const grouped: Record<string, Item[]> = {}

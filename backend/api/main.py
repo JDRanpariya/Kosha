@@ -1,5 +1,3 @@
-# backend/api/main.py
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -23,7 +21,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Kosha API",
-    description="Personal AI-powered content aggregator",
+    description="Personal content aggregator",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -31,8 +29,7 @@ app = FastAPI(
 
 @app.middleware("http")
 async def correlation_id_middleware(request: Request, call_next):
-    cid = request.headers.get("X-Correlation-ID")
-    set_correlation_id(cid)
+    set_correlation_id(request.headers.get("X-Correlation-ID"))
     response = await call_next(request)
     return response
 
@@ -45,11 +42,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(sources.router,       prefix="/api/sources",  tags=["sources"])
-app.include_router(ingest.router,        prefix="/api/ingest",   tags=["ingest"])
-app.include_router(search.router,        prefix="/api/search",   tags=["search"])
-app.include_router(digest.router,        prefix="/api/digest",   tags=["digest"])
-app.include_router(feedback.router,      prefix="/api/feedback", tags=["feedback"])
+app.include_router(digest.router,   prefix="/api/digest",   tags=["digest"])
+app.include_router(sources.router,  prefix="/api/sources",  tags=["sources"])
+app.include_router(feedback.router, prefix="/api/feedback", tags=["feedback"])
+app.include_router(ingest.router,   prefix="/api/ingest",   tags=["ingest"])
+app.include_router(search.router,   prefix="/api/search",   tags=["search"])
 
 
 @app.get("/health", response_model=StatusResponse)

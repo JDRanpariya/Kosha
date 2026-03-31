@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import func, exists
 from sqlalchemy.orm import Session, joinedload
 
-from backend.api.schemas.items import ItemSummary, ItemDetail
+from backend.api.schemas import ItemSummary, ItemDetail
 from backend.core.logging import get_logger
 from backend.db.models import Item, ItemContent, Interaction, Source
 

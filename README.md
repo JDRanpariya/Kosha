@@ -1,6 +1,6 @@
 # Kosha 🪷
 
-A fully open-source, self-hosted personal content aggregator. Kosha pulls from RSS feeds, arXiv, Spotify podcasts, and YouTube channels, stores everything in a searchable Postgres + pgvector database, and serves it through a clean REST API.
+A fully open-source, self-hosted personal content aggregator. Kosha pulls from RSS feeds, arXiv, Hacker News, Reddit, YouTube channels, and email newsletters — stores everything in a searchable Postgres + pgvector database, and serves it through a clean REST API with a warm, reading-focused frontend.
 
 ---
 
@@ -11,13 +11,13 @@ A fully open-source, self-hosted personal content aggregator. Kosha pulls from R
 | Python | 3.11 | [python.org](https://python.org) |
 | uv | latest | `pip install uv` or [docs.astral.sh/uv](https://docs.astral.sh/uv) |
 | Docker + Compose | 24 / v2 | [docs.docker.com](https://docs.docker.com) |
-| PostgreSQL *(local dev only)* | 15 with pgvector | see below |
-
-> **Tip** — easiest path for local dev: skip installing Postgres locally and use the Docker Compose recipe in the next section to spin up only the infrastructure services (Postgres, Redis, MinIO) while running the Python code directly on your machine.
+| Node / Bun *(frontend only)* | Bun 1.1+ | [bun.sh](https://bun.sh) |
 
 ---
 
-## Local Development (no Docker)
+## Local Development (Docker for services, code runs natively)
+
+This is the recommended workflow. Docker runs Postgres and Redis; your Python and frontend code run natively for fast iteration.
 
 ### 1. Clone and enter the repo
 
@@ -32,69 +32,34 @@ cd kosha
 uv venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
-# Core dependencies
+### Core dependencies
+
 uv pip install -e .
 
-# Optional: ML extras (sentence-transformers, torch) for embeddings
-uv pip install -e ".[ml]"
+### Dev tools (pytest, ruff)
 
-# Dev tools (pytest, ruff, mypy)
 uv pip install -e ".[dev]"
 ```
 
-### 3. Install and configure PostgreSQL with pgvector
+### 3. Create secrets files
 
-**macOS (Homebrew):**
-
-```bash
-brew install postgresql@18
-brew install pgvector
-echo 'export PATH="/opt/homebrew/opt/postgresql@18/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-pg_ctl -D $(brew --prefix)/var/postgresql@18 -l $(brew --prefix)/var/postgresql@18/server.log start
-```
-
-**Ubuntu/Debian:**
+The app reads secrets from `infra/secrets/<name>.txt`. The directory is git-ignored.
 
 ```bash
-sudo apt install postgresql postgresql-contrib
+mkdir -p infra/secrets
 
-# pgvector — build from source or use the apt repo:
-# https://github.com/pgvector/pgvector#installation
+### Required
+
+echo "localpassword"        > infra/secrets/db_password.txt
+
+### Optional — leave empty if you don't use the connector
+
+echo ""                     > infra/secrets/youtube_api_key.txt
+echo ""                     > infra/secrets/email_username.txt
+echo ""                     > infra/secrets/email_password.txt
 ```
 
-**Create the database:**
-
-```bash
-psql postgres -c "ALTER USER kosha SUPERUSER;"
-psql postgres <<SQL
-  CREATE USER kosha WITH PASSWORD 'localpassword';
-  CREATE DATABASE kosha_db OWNER kosha;
-  GRANT ALL PRIVILEGES ON DATABASE kosha_db TO kosha;
-SQL
-```
-
-**Enable the extension** (Alembic does this automatically on migrate, but you can do it manually if needed):
-
-```bash
-psql postgres -c "CREATE EXTENSION IF NOT EXISTS vector;"
-```
-
-### 4. Create secrets files
-
-The app reads secrets from `infra/secrets/<name>.txt`. Create the directory (it is already git-ignored):
-
-```bash
-# Mandatory
-echo "localpassword"       > infra/secrets/db_password.txt
-echo "your_minio_user"     > infra/secrets/minio_root_user.txt
-echo "your_minio_pass"     > infra/secrets/minio_root_password.txt
-echo "your_spotify_id"     > infra/secrets/spotify_client_id.txt
-echo "your_spotify_secret" > infra/secrets/spotify_client_secret.txt
-echo "your_yt_api_key"     > infra/secrets/youtube_api_key.txt
-```
-
-### 5. Create a `.env` file for non-secret config
+### 4. Create a `.env` file
 
 ```bash
 cat > .env <<EOF
@@ -102,13 +67,16 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_USER=kosha
 DB_NAME=kosha_db
-
 REDIS_HOST=localhost
 REDIS_PORT=6379
 EOF
 ```
 
-> `.env` is git-ignored. Values here override the defaults in `backend/core/config.py`.
+### 5. Start infrastructure services
+
+```bash
+docker compose up postgres redis -d
+```
 
 ### 6. Run database migrations
 
@@ -116,21 +84,27 @@ EOF
 alembic upgrade head
 ```
 
-### 7. Start the API server
+### 7. Start the backend
 
 ```bash
 uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Visit [http://localhost:8000/docs](http://localhost:8000/docs) for the interactive Swagger UI.
+Visit [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI.
 
-### 8. Seed some sources *(optional)*
+### 8. Start the frontend
 
 ```bash
-python tests/backend/seed_data.py
+cd frontend
+bun install
+bun run dev
 ```
 
-### 9. Run a manual ingestion cycle
+Visit [http://localhost:5173](http://localhost:5173). The Vite dev server proxies `/api` requests to the backend.
+
+### 9. Add sources and trigger ingestion
+
+Use the Sources page in the UI, or seed manually:
 
 ```bash
 python -m backend.scripts.run_ingestion
@@ -138,59 +112,15 @@ python -m backend.scripts.run_ingestion
 
 ---
 
-## Local Development (Docker for services only)
-
-This is the recommended workflow. Docker runs Postgres, Redis, and MinIO; your Python code runs natively for fast iteration.
-
-### 1. Start only the infrastructure services
-
-```bash
-# First, make sure secret files exist (see step 4 above)
-docker compose up postgres redis minio -d
-```
-
-### 2. Point your `.env` at the Docker services
-
-```bash
-cat > .env <<EOF
-DB_HOST=localhost          # Docker publishes port 5432 to localhost
-DB_PORT=5432
-DB_USER=kosha
-DB_NAME=kosha_db
-
-REDIS_HOST=localhost
-REDIS_PORT=6379
-EOF
-```
-
-### 3. Follow steps 2, 4, 6–9 from the previous section
-
-Everything else is identical — you just don't need a local Postgres install.
-
----
-
 ## Full Docker Deployment
 
-### 1. Populate all secret files
-
-```
-infra/secrets/
-├── db_password.txt
-├── minio_root_user.txt
-├── minio_root_password.txt
-├── spotify_client_id.txt       # leave empty string if unused
-├── spotify_client_secret.txt
-└── youtube_api_key.txt
-```
+### 1. Populate secret files
 
 ```bash
-# Quick scaffold — replace values before running in production
 echo "changeme_strong_password" > infra/secrets/db_password.txt
-echo "minioadmin"               > infra/secrets/minio_root_user.txt
-echo "changeme_minio_pass"      > infra/secrets/minio_root_password.txt
-echo ""                         > infra/secrets/spotify_client_id.txt
-echo ""                         > infra/secrets/spotify_client_secret.txt
 echo ""                         > infra/secrets/youtube_api_key.txt
+echo ""                         > infra/secrets/email_username.txt
+echo ""                         > infra/secrets/email_password.txt
 ```
 
 ### 2. Build and start all services
@@ -199,31 +129,24 @@ echo ""                         > infra/secrets/youtube_api_key.txt
 docker compose up --build -d
 ```
 
-### 3. Run migrations inside the container
+### 3. Run migrations
 
 ```bash
 docker compose exec backend alembic upgrade head
 ```
 
-### 4. Verify everything is running
+### 4. Verify
 
 ```bash
 docker compose ps
 curl http://localhost:8000/health   # → {"status":"healthy"}
 ```
 
-### 5. View logs
-
-```bash
-docker compose logs -f backend
-docker compose logs -f postgres
-```
-
-### 6. Tear down
+### 5. Tear down
 
 ```bash
 docker compose down      # keep volumes
-docker compose down -v   # also delete all data volumes
+docker compose down -v   # delete all data
 ```
 
 ---
@@ -233,85 +156,109 @@ docker compose down -v   # also delete all data volumes
 | File | Purpose | Required |
 |---|---|---|
 | `db_password.txt` | Postgres password | ✅ Always |
-| `minio_root_user.txt` | MinIO admin user | Only if using MinIO |
-| `minio_root_password.txt` | MinIO admin password | Only if using MinIO |
-| `spotify_client_id.txt` | Spotify API client ID | Only for Spotify connector |
-| `spotify_client_secret.txt` | Spotify API secret | Only for Spotify connector |
 | `youtube_api_key.txt` | YouTube Data API v3 key | Only for YouTube connector |
+| `email_username.txt` | IMAP email address | Only for Email connector |
+| `email_password.txt` | IMAP app password | Only for Email connector |
 
-**Secret resolution order** (highest priority first):
+**Resolution order** (highest priority first):
 
 1. `/run/secrets/<name>` — Docker secrets (production)
 2. `infra/secrets/<name>.txt` — local file (development)
-3. Empty string default (connector will be skipped or raise a config error)
+3. Empty string default — connector will be skipped
+
+---
+
+## Supported Connectors
+
+| Type | Category | Auth Required | Example Config |
+|---|---|---|---|
+| `rss` | Newsletters | None | `{"feed_url": "https://example.com/feed"}` |
+| `substack` | Newsletters | None | `{"publication_url": "https://stratechery.substack.com"}` |
+| `email_imap` | Newsletters | IMAP credentials | `{"imap_host": "imap.gmail.com", "sender_filter": "@substack.com"}` |
+| `arxiv` | Papers | None | `{"categories": ["cs.AI", "stat.ML"]}` |
+| `hackernews` | Social | None | `{"tags": "front_page", "min_points": 100}` |
+| `reddit` | Social | None | `{"subreddits": ["MachineLearning", "LocalLLaMA"]}` |
+| `youtube` | Videos | API key | `{"channels": ["UCBcRF18a7Qf58cCRy5xuWwQ"]}` |
+
+---
+
+## Ingestion
+
+There is no background scheduler built in. Content is fetched on demand.
+
+**From the UI:**
+Click the ⟳ button in the header, or use per-source "Fetch now" on the Sources page.
+
+**From the API:**
+
+```bash
+
+### All enabled sources
+
+curl -X POST http://localhost:8000/api/ingest/trigger-all
+
+### Single source
+
+curl -X POST http://localhost:8000/api/ingest/trigger/1
+```
+
+**CLI:**
+
+```bash
+python -m backend.scripts.run_ingestion
+```
+
+**Scheduled (cron):**
+
+```bash
+
+### crontab -e
+
+0 */6 * * * curl -s -X POST http://localhost:8000/api/ingest/trigger-all
+```
 
 ---
 
 ## Database Migrations
 
 ```bash
-# Apply all pending migrations
-alembic upgrade head
-
-# Roll back one step
-alembic downgrade -1
-
-# Auto-generate a migration after changing models.py
-alembic revision --autogenerate -m "describe your change"
-
-# Show current revision
-alembic current
-
-# Show full migration history
-alembic history
+alembic upgrade head                              # apply all
+alembic downgrade -1                              # roll back one
+alembic revision --autogenerate -m "description"  # generate from model changes
+alembic current                                   # show current revision
+alembic history                                   # full history
 ```
 
-> ⚠️ The pgvector extension must exist in the database before running migrations. The `env.py` migration runner creates it automatically via `CREATE EXTENSION IF NOT EXISTS vector`.
-
----
-
-## Running Ingestion
-
-**Manual one-shot run:**
-
-```bash
-# Natively
-python -m backend.scripts.run_ingestion
-
-# Inside Docker
-docker compose exec backend python -m backend.scripts.run_ingestion
-```
-
-**Scheduled (Celery — coming soon)**
-
-Celery worker and beat scheduler will be added as separate Compose services. For now, use a cron job to call the manual script:
-
-```bash
-# /etc/cron.d/kosha  — run ingestion every 6 hours
-0 */6 * * * cd /path/to/kosha && .venv/bin/python -m backend.scripts.run_ingestion
-```
+> The pgvector extension is created automatically by the migration runner.
 
 ---
 
 ## API Reference
 
-The full interactive docs are at [http://localhost:8000/docs](http://localhost:8000/docs).
+Full interactive docs at [http://localhost:8000/docs](http://localhost:8000/docs).
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/health` | Health check |
-| `GET` | `/api/digest/daily` | Items from the last 24 hours |
+| `GET` | `/api/digest/daily` | Items from the last 24 h (excludes dismissed) |
 | `GET` | `/api/digest/item/{id}` | Full item with parsed content |
-| `GET` | `/api/sources/` | List all configured sources |
-| `POST` | `/api/feedback/` | Submit feedback (stub) |
+| `GET` | `/api/search/?q=...` | Semantic search via pgvector |
+| `GET` | `/api/sources/` | List configured sources |
+| `POST` | `/api/sources/` | Create a source |
+| `PATCH` | `/api/sources/{id}` | Update a source |
+| `DELETE` | `/api/sources/{id}` | Delete a source |
+| `POST` | `/api/feedback/` | Save / dismiss / unsave an item |
+| `GET` | `/api/feedback/saved` | Reading list |
+| `POST` | `/api/ingest/trigger-all` | Fetch all enabled sources |
+| `POST` | `/api/ingest/trigger/{id}` | Fetch a single source |
 
 ---
 
-## Adding a New Source
+## Adding a New Connector
 
 ### 1. Write the connector
 
-Create `connectors/<category>/<type>.py` following the `BaseConnector` interface:
+Create `connectors/<category>/<type>.py`:
 
 ```python
 from connectors.base import BaseConnector, ConnectorConfig
@@ -322,49 +269,43 @@ class MyConfig(ConnectorConfig):
 
 class MyConnector(BaseConnector):
     ConfigModel = MyConfig
+    source_type = "my_type"
 
     def fetch(self) -> list[ConnectorOutput]:
-        # ... call an API, parse a feed, etc.
-        return [ConnectorOutput(...)]
+        # call an API, parse a feed, etc.
+        return [ConnectorOutput(title=..., url=..., content=...)]
 ```
 
-### 2. Register it
-
-Add an entry to `connectors/registry.py`:
+### 2. Register it in `connectors/registry.py`
 
 ```python
 from connectors.<category>.<type> import MyConnector
 
-CONNECTOR_REGISTRY["<category>"] = {
-    "<type>": {
-        "class": MyConnector,
-        "display_name": "Human Readable Name",
-        "required_fields": ["some_field"],
-    },
+CONNECTOR_REGISTRY["<category>"]["<type>"] = {
+    "class": MyConnector,
+    "display_name": "My Source",
+    "required_fields": ["some_field"],
 }
 ```
 
-### 3. Map the category in the ingestion script
-
-If you introduced a new category string, add it to `CATEGORY_MAP` in `backend/scripts/run_ingestion.py`:
+### 3. Map the category in `backend/api/routes/ingest.py`
 
 ```python
-CATEGORY_MAP = {
-    ...
-    "<type>": "<category>",
-}
+CATEGORY_MAP["<type>"] = "<category>"
 ```
 
-### 4. Add a row to the sources table
+### 4. Add the type to `SourceType` in `backend/api/schemas.py`
 
 ```python
-# In a seed script or via psql
-Source(
-    name="My New Source",
-    type="<type>",
-    enabled=True,
-    config_json={"some_field": "value"},
-)
+SourceType = Literal[..., "<type>"]
+```
+
+### 5. Create a source via the API or UI
+
+```bash
+curl -X POST http://localhost:8000/api/sources/ \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My Source", "type": "<type>", "config_json": {"some_field": "value"}}'
 ```
 
 ---
@@ -375,34 +316,83 @@ Source(
 kosha/
 ├── backend/
 │   ├── api/
-│   │   ├── main.py              # FastAPI app, middleware, router mounts
+│   │   ├── main.py            # FastAPI app, middleware, router mounts
+│   │   ├── schemas.py         # All Pydantic request/response models
+│   │   ├── dependencies.py    # get_db, ensure_user_exists
 │   │   └── routes/
-│   │       ├── digest.py        # /api/digest endpoints
-│   │       ├── sources.py       # /api/sources endpoints
-│   │       └── feedback.py      # /api/feedback endpoints
+│   │       ├── digest.py      # /api/digest/*
+│   │       ├── sources.py     # /api/sources/*
+│   │       ├── feedback.py    # /api/feedback/*
+│   │       ├── ingest.py      # /api/ingest/*
+│   │       └── search.py      # /api/search/*
 │   ├── core/
-│   │   └── config.py            # Settings (secrets + env vars)
+│   │   ├── config.py          # Settings (secrets + env vars)
+│   │   ├── constants.py       # Magic numbers, model names
+│   │   └── logging.py         # Structured logging + correlation IDs
 │   ├── db/
-│   │   ├── database.py          # SQLAlchemy engine + session factory
-│   │   ├── models.py            # ORM models (User, Source, Item, …)
-│   │   └── migrations/          # Alembic migration scripts
+│   │   ├── database.py        # SQLAlchemy engine + session
+│   │   ├── models.py          # ORM models (User, Source, Item, …)
+│   │   └── migrations/        # Alembic scripts
 │   └── services/
-│       └── ingestion.py         # Core fetch → store pipeline
+│       ├── embedding.py       # Singleton SentenceTransformer wrapper
+│       ├── ingestion.py       # Fetch → deduplicate → store → embed
+│       └── items.py           # Query helpers for items
 ├── connectors/
-│   ├── base.py                  # BaseConnector + ConnectorConfig
-│   ├── registry.py              # Maps category/type → connector class
-│   ├── newsletters/rss.py
-│   ├── papers/arxiv.py
-│   ├── podcasts/spotify.py
-│   └── youtube/youtube.py
+│   ├── base.py                # BaseConnector + ConnectorConfig
+│   ├── registry.py            # Maps type → connector class
+│   ├── subscriptions/
+│   │   ├── rss.py
+│   │   ├── substack.py
+│   │   ├── email_imap.py
+│   │   ├── arxiv.py
+│   │   └── youtube.py
+│   └── discovery/
+│       ├── hackernews.py
+│       └── reddit.py
+├── frontend/
+│   ├── src/
+│   │   ├── pages/             # DigestPage, SourcesPage, etc.
+│   │   ├── components/        # ItemCard, ItemDetail, Layout, Sidebar
+│   │   ├── hooks/             # useItems, useSources, useSearch
+│   │   ├── lib/               # api.ts, utils.ts
+│   │   ├── stores/            # Zustand UI state
+│   │   └── types/             # TypeScript interfaces
+│   ├── package.json
+│   └── vite.config.ts
 ├── schemas/
-│   └── connector_output.py      # Shared Pydantic output schema
+│   └── connector_output.py    # Shared output schema for connectors
 ├── infra/
-│   └── secrets/                 # *.txt files (git-ignored)
+│   └── secrets/               # *.txt credential files (git-ignored)
 ├── tests/
-├── compose.yml
+├── compose.yml                # Postgres + Redis + backend + frontend
 ├── alembic.ini
 └── pyproject.toml
 ```
 
 ---
+
+## Architecture
+
+```
+┌─────────────┐     ┌───────────────────┐     ┌──────────────┐
+│  Frontend    │────▶│  FastAPI Backend   │────▶│  PostgreSQL  │
+│  (Vite+React)│     │                   │     │  + pgvector  │
+└─────────────┘     │  /api/digest      │     └──────────────┘
+                    │  /api/sources     │            │
+                    │  /api/search      │     ┌──────────────┐
+                    │  /api/feedback    │     │    Redis      │
+                    │  /api/ingest ─────│────▶│  (cache)     │
+                    └────────┬──────────┘     └──────────────┘
+                             │
+                    ┌────────▼──────────┐
+                    │   Connectors      │
+                    │  RSS · arXiv · HN │
+                    │  Reddit · YouTube │
+                    │  Email · Substack │
+                    └───────────────────┘
+```
+
+**Data flow:** Trigger ingestion → Connectors fetch content → Deduplicate by URL hash → Store items + content → Generate embeddings → Available in digest/search.
+
+---
+

@@ -1,4 +1,4 @@
-// ── Source ────────────────────────────────────────────────────────────────
+// ── Source ──
 
 export interface Source {
   id: number
@@ -17,10 +17,7 @@ export type SourceType =
   | 'arxiv'
   | 'hackernews'
   | 'reddit'
-  | 'github'
-  | 'spotify'
   | 'youtube'
-  | 'youtube_subscriptions'
 
 export interface SourceCreate {
   name: string
@@ -29,7 +26,7 @@ export interface SourceCreate {
   config_json?: Record<string, unknown>
 }
 
-// ── Item ──────────────────────────────────────────────────────────────────
+// ── Item ──
 
 export interface Item {
   id: number
@@ -47,7 +44,7 @@ export interface ItemDetail extends Item {
   metadata: Record<string, unknown>
 }
 
-// ── Digest ────────────────────────────────────────────────────────────────
+// ── Digest ──
 
 export interface DigestResponse {
   date: string
@@ -57,7 +54,7 @@ export interface DigestResponse {
   items: Item[]
 }
 
-// ── Search ────────────────────────────────────────────────────────────────
+// ── Search ──
 
 export interface SearchResponse {
   query: string
@@ -65,7 +62,7 @@ export interface SearchResponse {
   items: Item[]
 }
 
-// ── Saved ─────────────────────────────────────────────────────────────────
+// ── Saved ──
 
 export interface SavedResponse {
   count: number
@@ -73,30 +70,9 @@ export interface SavedResponse {
   items: Item[]
 }
 
-// ── Feedback ──────────────────────────────────────────────────────────────
+// ── Feedback ──
 
 export interface FeedbackType {
   item_id: number
-  // 'unsave' removes the item from the reading list (deletes saved interaction)
-  // 'dismissed' hides the item from the digest permanently
   type: 'viewed' | 'saved' | 'unsave' | 'dismissed'
-}
-
-// ── Teach signal ──────────────────────────────────────────────────────────
-
-export interface TeachSignal {
-  item_id: number
-  selected_tags: string[]
-  note?: string
-}
-
-// ── Connector meta ────────────────────────────────────────────────────────
-
-export interface ConnectorMeta {
-  category: string
-  type: string
-  display_name: string
-  required_fields: string[]
-  optional_fields: string[]
-  example_config: Record<string, unknown>
 }
